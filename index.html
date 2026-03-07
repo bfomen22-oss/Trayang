@@ -17,11 +17,12 @@
             </button>
         </div>
 
-        <div id="content-area" class="space-y-4">
-            <div id="image-container">
-                <img id="display-image" src="https://via.placeholder.com/400x200?text=No+Image" class="w-full h-52 object-cover rounded-xl border">
-                <input type="file" id="file-input" class="hidden mt-2 text-sm text-gray-500">
-            </div>
+        <div id="image-container" class="relative group">
+            <img id="display-image" src="https://via.placeholder.com/400x200?text=Select+Image" 
+                 class="w-full h-52 object-cover rounded-xl border-2 border-dashed border-gray-300">
+            
+            <input type="file" id="file-input" accept="image/*" class="hidden mt-2 text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+        </div>
 
             <div id="text-display">
                 <h2 id="display-title" class="text-2xl font-bold text-gray-900">หัวข้อ</h2>
@@ -49,19 +50,55 @@
         const editBtn = document.getElementById('editBtn');
         const saveBtn = document.getElementById('saveBtn');
         const fileInput = document.getElementById('file-input');
-        const displayImage = document.getElementById('display-image');
+        const displayImage = document.getElementById('display-image')
         
         // --- ฟังก์ชันแสดงรูป Preview ทันทีที่เลือกไฟล์ ---
         fileInput.addEventListener('change', function() {
             const file = this.files[0];
             if (file) {
+                // ใช้ FileReader อ่านไฟล์ในเครื่องมาโชว์ที่หน้าเว็บก่อน
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    displayImage.src = e.target.result; // เปลี่ยนรูปบนหน้าจอทันที
+                    displayImage.src = e.target.result; // เปลี่ยนรูปที่โชว์เป็นรูปที่เราเลือก
+                    displayImage.classList.remove('border-dashed'); // ปรับดีไซน์ให้สวยขึ้น
                 }
                 reader.readAsDataURL(file);
             }
         });
+
+        async function saveData() {
+        const title = document.getElementById('input-title').value;
+        const content = document.getElementById('input-content').value;
+        let finalUrl = displayImage.src; // ใช้รูปปัจจุบันที่โชว์อยู่
+
+        const saveBtn = document.getElementById('saveBtn');
+        saveBtn.disabled = true;
+        saveBtn.innerText = "กำลังอัปโหลดรูปและบันทึก...";
+
+        // ถ้ามีการเลือกไฟล์ใหม่ (เช็คว่าเป็นไฟล์จากเครื่อง ไม่ใช่ URL เดิม)
+        if (fileInput.files.length > 0) {
+            const file = fileInput.files[0];
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Date.now()}.${fileExt}`; // ตั้งชื่อไฟล์ใหม่กันซ้ำ
+
+            // 1. อัปโหลดไฟล์ไปที่ Supabase Storage
+            const { data: uploadData, error: uploadError } = await supabaseClient.storage
+                .from('images') // ชื่อ Bucket ต้องตรงกับใน Supabase
+                .upload(fileName, file);
+
+            if (uploadError) {
+                alert("อัปโหลดรูปไม่สำเร็จ: " + uploadError.message);
+                saveBtn.disabled = false;
+                return;
+            }
+
+            // 2. ดึง URL จริงของรูปที่เพิ่งอัปโหลด
+            const { data: publicUrl } = supabaseClient.storage
+                .from('images')
+                .getPublicUrl(fileName);
+            
+            finalUrl = publicUrl.publicUrl;
+        }
         
         // สลับโหมดแก้ไข
         editBtn.addEventListener('click', () => {
@@ -114,19 +151,25 @@
         
             // อัปเดต Database
             const { error: dbError } = await supabaseClient
-                .from('posts')
-                .update({ title, content, image_url: finalImageUrl })
-                .eq('id', currentPostId);
-        
-            if (!dbError) {
-                alert("บันทึกสำเร็จ!");
-                location.reload();
-            } else {
-                alert("บันทึกข้อมูลไม่สำเร็จ: " + dbError.message);
-                saveBtn.disabled = false;
-                saveBtn.innerText = "💾 บันทึกการเปลี่ยนแปลง";
-            }
-        });
+            .from('posts')
+            .update({ 
+                title: title, 
+                content: content, 
+                image_url: finalUrl 
+            })
+            .eq('id', currentPostId);
+
+        if (!dbError) {
+            alert("บันทึกและอัปโหลดรูปเรียบร้อย!");
+            location.reload();
+        } else {
+            alert("บันทึกข้อความไม่สำเร็จ: " + dbError.message);
+            saveBtn.disabled = false;
+        }
+    }
+    
+    // อย่าลืมผูกฟังก์ชัน saveData กับปุ่ม Save ของคุณด้วยครับ
+    document.getElementById('saveBtn').onclick = saveData;
         
         loadData();
     </script>
