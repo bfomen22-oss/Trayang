@@ -2,23 +2,40 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Price List</title>
+<title>Price Manager</title>
 </head>
 
 <body>
 
 <h2>รายการสินค้า</h2>
 
-<table border="1" id="table">
-</table>
+<table border="1" id="table"></table>
+
+<h3>เพิ่มสินค้า</h3>
+
+ID
+<input id="id"><br>
+
+ชื่อ
+<input id="name"><br>
+
+ราคา
+<input id="price"><br>
+
+<button onclick="addData()">เพิ่มข้อมูล</button>
 
 <script>
 
-fetch("https://script.google.com/macros/s/AKfycbz1bXKoR9fK6i8ThqJS9zjpC2CCjVD4HIFv-fjGQjC8u3yDvPAvJU721257hhU59qaj5A/exec")
+const API = "ใส่URL_APPS_SCRIPT";
+
+function loadData(){
+
+fetch(API)
 .then(res => res.json())
 .then(data => {
 
 let table = document.getElementById("table")
+table.innerHTML=""
 
 data.forEach(row => {
 
@@ -38,6 +55,35 @@ table.appendChild(tr)
 })
 
 })
+
+}
+
+function addData(){
+
+let id = document.getElementById("id").value
+let name = document.getElementById("name").value
+let price = document.getElementById("price").value
+
+fetch(API,{
+method:"POST",
+body:JSON.stringify({
+id:id,
+name:name,
+price:price
+})
+})
+.then(res=>res.text())
+.then(()=>{
+
+alert("เพิ่มสำเร็จ")
+
+loadData()
+
+})
+
+}
+
+loadData()
 
 </script>
 
