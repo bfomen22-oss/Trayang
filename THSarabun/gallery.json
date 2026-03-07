@@ -1,0 +1,16 @@
+[
+  {
+    "id": 1704123456789,
+    "title": "รูปตัวอย่าง 1",
+    "description": "คำอธิบายรูปภาพตัวอย่างที่ 1",
+    "imageUrl": "https://via.placeholder.com/300x200?text=Image+1",
+    "dateAdded": "2024-01-01T12:00:00.000Z"
+  },
+  {
+    "id": 1704123456790,
+    "title": "รูปตัวอย่าง 2", 
+    "description": "คำอธิบายรูปภาพตัวอย่างที่ 2",
+    "imageUrl": "https://via.placeholder.com/300x200?text=Image+2",
+    "dateAdded": "2024-01-01T12:00:00.000Z"
+  }
+]
