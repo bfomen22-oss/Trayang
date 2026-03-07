@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Personal Web (Editable)</title>
+    <title>My Personal Web</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -12,26 +12,26 @@
     <div id="app" class="max-w-xl mx-auto bg-white rounded-2xl shadow-md overflow-hidden mt-10 p-6">
         <div class="flex justify-between items-center mb-6">
             <h1 class="text-xl font-bold text-gray-800">My Dashboard</h1>
-            <button id="editBtn" onclick="toggleEdit()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition">
+            <button id="editBtn" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition">
                 ⚙️ แก้ไขข้อมูล
             </button>
         </div>
 
         <div id="content-area" class="space-y-4">
             <div id="image-container">
-                <img id="display-image" src="https://via.placeholder.com/400x200?text=Loading..." class="w-full h-52 object-cover rounded-xl border">
+                <img id="display-image" src="https://via.placeholder.com/400x200?text=No+Image" class="w-full h-52 object-cover rounded-xl border">
                 <input type="file" id="file-input" class="hidden mt-2 text-sm text-gray-500">
             </div>
 
             <div id="text-display">
                 <h2 id="display-title" class="text-2xl font-bold text-gray-900">หัวข้อ</h2>
-                <p id="display-content" class="mt-2 text-gray-600 whitespace-pre-wrap">เนื้อหาของคุณจะปรากฏที่นี่...</p>
+                <p id="display-content" class="mt-2 text-gray-600 whitespace-pre-wrap">เนื้อหา...</p>
             </div>
 
             <div id="text-edit" class="hidden space-y-3">
-                <input type="text" id="input-title" class="w-full border p-2 rounded-lg font-bold" placeholder="ใส่หัวข้อ">
-                <textarea id="input-content" class="w-full border p-2 rounded-lg h-32" placeholder="ใส่เนื้อหา"></textarea>
-                <button onclick="saveData()" class="w-full bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700">
+                <input type="text" id="input-title" class="w-full border p-2 rounded-lg font-bold">
+                <textarea id="input-content" class="w-full border p-2 rounded-lg h-32"></textarea>
+                <button id="saveBtn" class="w-full bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700">
                     💾 บันทึกการเปลี่ยนแปลง
                 </button>
             </div>
@@ -39,72 +39,84 @@
     </div>
 
     <script>
-        // --- 1. ตั้งค่า Supabase ---
+        // --- แก้ไข Error: Identifier 'supabase' has already been declared ---
+        // เปลี่ยนชื่อตัวแปรเป็น supabaseClient เพื่อไม่ให้ตีกับชื่อ Library
         const SUPABASE_URL = 'https://plpaoldrfhzbktyxfuwl.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBscGFvbGRyZmh6Ymt0eXhmdXdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4NDE1MTksImV4cCI6MjA4ODQxNzUxOX0.5eA3bX9pE4fmC1LcSsRqbZca4RDfScwwe7SoQSoOrIg';
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         let isEditing = false;
         let currentPostId = null;
 
-        // --- 2. ดึงข้อมูลมาแสดงตอนโหลดหน้าเว็บ ---
-        async function loadData() {
-            const { data, error } = await supabase.from('posts').select('*').limit(1).single();
-            if (data) {
-                currentPostId = data.id;
-                document.getElementById('display-title').innerText = data.title;
-                document.getElementById('display-content').innerText = data.content;
-                document.getElementById('display-image').src = data.image_url || 'https://via.placeholder.com/400';
-                
-                // เตรียมค่าไว้ใน Input
-                document.getElementById('input-title').value = data.title;
-                document.getElementById('input-content').value = data.content;
-            }
-        }
+        // ดึง Element ต่างๆ มาเก็บไว้
+        const editBtn = document.getElementById('editBtn');
+        const saveBtn = document.getElementById('saveBtn');
+        const fileInput = document.getElementById('file-input');
 
-        // --- 3. ฟังก์ชันสลับโหมด แก้ไข/แสดงผล ---
-        function toggleEdit() {
+        // --- แก้ไข Error: toggleEdit is not defined ---
+        // แนะนำให้ผูก Event ผ่าน JavaScript แทนการเขียนใน HTML tag onclick
+        editBtn.addEventListener('click', () => {
             isEditing = !isEditing;
             document.getElementById('text-display').classList.toggle('hidden', isEditing);
             document.getElementById('text-edit').classList.toggle('hidden', !isEditing);
-            document.getElementById('file-input').classList.toggle('hidden', !isEditing);
-            document.getElementById('editBtn').innerText = isEditing ? '❌ ยกเลิก' : '⚙️ แก้ไขข้อมูล';
+            fileInput.classList.toggle('hidden', !isEditing);
+            editBtn.innerText = isEditing ? '❌ ยกเลิก' : '⚙️ แก้ไขข้อมูล';
+        });
+
+        async function loadData() {
+            try {
+                const { data, error } = await supabaseClient.from('posts').select('*').limit(1).single();
+                if (data) {
+                    currentPostId = data.id;
+                    document.getElementById('display-title').innerText = data.title;
+                    document.getElementById('display-content').innerText = data.content;
+                    document.getElementById('display-image').src = data.image_url || 'https://via.placeholder.com/400';
+                    
+                    document.getElementById('input-title').value = data.title;
+                    document.getElementById('input-content').value = data.content;
+                }
+            } catch (err) {
+                console.error("โหลดข้อมูลไม่สำเร็จ:", err);
+            }
         }
 
-        // --- 4. ฟังก์ชันบันทึกข้อมูล (Text + Image) ---
-        async function saveData() {
+        saveBtn.addEventListener('click', async () => {
             const title = document.getElementById('input-title').value;
             const content = document.getElementById('input-content').value;
-            const fileInput = document.getElementById('file-input');
             let imageUrl = document.getElementById('display-image').src;
 
-            // ถ้ามีการเลือกไฟล์ใหม่ ให้ดึงรูปขึ้น Storage ก่อน
+            saveBtn.disabled = true;
+            saveBtn.innerText = "กำลังบันทึก...";
+
+            // อัปโหลดรูปภาพ
             if (fileInput.files.length > 0) {
                 const file = fileInput.files[0];
-                const fileName = Date.now() + '-' + file.name;
-                const { data: uploadData, error: uploadError } = await supabase.storage
+                const fileName = `${Date.now()}-${file.name}`;
+                const { data: uploadData, error: uploadError } = await supabaseClient.storage
                     .from('images')
                     .upload(fileName, file);
 
                 if (!uploadError) {
-                    const { data: publicUrl } = supabase.storage.from('images').getPublicUrl(fileName);
+                    const { data: publicUrl } = supabaseClient.storage.from('images').getPublicUrl(fileName);
                     imageUrl = publicUrl.publicUrl;
                 }
             }
 
-            // บันทึกลง Database
-            const { error } = await supabase
+            // บันทึก DB
+            const { error } = await supabaseClient
                 .from('posts')
                 .update({ title, content, image_url: imageUrl })
                 .eq('id', currentPostId);
 
             if (!error) {
                 alert("บันทึกสำเร็จ!");
-                location.reload(); // รีโหลดหน้าเพื่อแสดงผลใหม่
+                location.reload();
             } else {
-                alert("เกิดข้อผิดพลาด: " + error.message);
+                alert("Error: " + error.message);
+                saveBtn.disabled = false;
+                saveBtn.innerText = "💾 บันทึกการเปลี่ยนแปลง";
             }
-        }
+        });
 
         loadData();
     </script>
