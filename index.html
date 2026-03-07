@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Personal Web (Editable)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-4">
+
+    <div id="app" class="max-w-xl mx-auto bg-white rounded-2xl shadow-md overflow-hidden mt-10 p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-xl font-bold text-gray-800">My Dashboard</h1>
+            <button id="editBtn" onclick="toggleEdit()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition">
+                ⚙️ แก้ไขข้อมูล
+            </button>
+        </div>
+
+        <div id="content-area" class="space-y-4">
+            <div id="image-container">
+                <img id="display-image" src="https://via.placeholder.com/400x200?text=Loading..." class="w-full h-52 object-cover rounded-xl border">
+                <input type="file" id="file-input" class="hidden mt-2 text-sm text-gray-500">
+            </div>
+
+            <div id="text-display">
+                <h2 id="display-title" class="text-2xl font-bold text-gray-900">หัวข้อ</h2>
+                <p id="display-content" class="mt-2 text-gray-600 whitespace-pre-wrap">เนื้อหาของคุณจะปรากฏที่นี่...</p>
+            </div>
+
+            <div id="text-edit" class="hidden space-y-3">
+                <input type="text" id="input-title" class="w-full border p-2 rounded-lg font-bold" placeholder="ใส่หัวข้อ">
+                <textarea id="input-content" class="w-full border p-2 rounded-lg h-32" placeholder="ใส่เนื้อหา"></textarea>
+                <button onclick="saveData()" class="w-full bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700">
+                    💾 บันทึกการเปลี่ยนแปลง
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. ตั้งค่า Supabase ---
+        const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+        const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY';
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let isEditing = false;
+        let currentPostId = null;
+
+        // --- 2. ดึงข้อมูลมาแสดงตอนโหลดหน้าเว็บ ---
+        async function loadData() {
+            const { data, error } = await supabase.from('posts').select('*').limit(1).single();
+            if (data) {
+                currentPostId = data.id;
+                document.getElementById('display-title').innerText = data.title;
+                document.getElementById('display-content').innerText = data.content;
+                document.getElementById('display-image').src = data.image_url || 'https://via.placeholder.com/400';
+                
+                // เตรียมค่าไว้ใน Input
+                document.getElementById('input-title').value = data.title;
+                document.getElementById('input-content').value = data.content;
+            }
+        }
+
+        // --- 3. ฟังก์ชันสลับโหมด แก้ไข/แสดงผล ---
+        function toggleEdit() {
+            isEditing = !isEditing;
+            document.getElementById('text-display').classList.toggle('hidden', isEditing);
+            document.getElementById('text-edit').classList.toggle('hidden', !isEditing);
+            document.getElementById('file-input').classList.toggle('hidden', !isEditing);
+            document.getElementById('editBtn').innerText = isEditing ? '❌ ยกเลิก' : '⚙️ แก้ไขข้อมูล';
+        }
+
+        // --- 4. ฟังก์ชันบันทึกข้อมูล (Text + Image) ---
+        async function saveData() {
+            const title = document.getElementById('input-title').value;
+            const content = document.getElementById('input-content').value;
+            const fileInput = document.getElementById('file-input');
+            let imageUrl = document.getElementById('display-image').src;
+
+            // ถ้ามีการเลือกไฟล์ใหม่ ให้ดึงรูปขึ้น Storage ก่อน
+            if (fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                const fileName = Date.now() + '-' + file.name;
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                    .from('images')
+                    .upload(fileName, file);
+
+                if (!uploadError) {
+                    const { data: publicUrl } = supabase.storage.from('images').getPublicUrl(fileName);
+                    imageUrl = publicUrl.publicUrl;
+                }
+            }
+
+            // บันทึกลง Database
+            const { error } = await supabase
+                .from('posts')
+                .update({ title, content, image_url: imageUrl })
+                .eq('id', currentPostId);
+
+            if (!error) {
+                alert("บันทึกสำเร็จ!");
+                location.reload(); // รีโหลดหน้าเพื่อแสดงผลใหม่
+            } else {
+                alert("เกิดข้อผิดพลาด: " + error.message);
+            }
+        }
+
+        loadData();
+    </script>
+</body>
+</html>
