@@ -39,22 +39,31 @@
     </div>
 
     <script>
-        // --- แก้ไข Error: Identifier 'supabase' has already been declared ---
-        // เปลี่ยนชื่อตัวแปรเป็น supabaseClient เพื่อไม่ให้ตีกับชื่อ Library
         const SUPABASE_URL = 'https://plpaoldrfhzbktyxfuwl.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBscGFvbGRyZmh6Ymt0eXhmdXdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4NDE1MTksImV4cCI6MjA4ODQxNzUxOX0.5eA3bX9pE4fmC1LcSsRqbZca4RDfScwwe7SoQSoOrIg';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
+        
         let isEditing = false;
         let currentPostId = null;
-
-        // ดึง Element ต่างๆ มาเก็บไว้
+        
         const editBtn = document.getElementById('editBtn');
         const saveBtn = document.getElementById('saveBtn');
         const fileInput = document.getElementById('file-input');
-
-        // --- แก้ไข Error: toggleEdit is not defined ---
-        // แนะนำให้ผูก Event ผ่าน JavaScript แทนการเขียนใน HTML tag onclick
+        const displayImage = document.getElementById('display-image');
+        
+        // --- ฟังก์ชันแสดงรูป Preview ทันทีที่เลือกไฟล์ ---
+        fileInput.addEventListener('change', function() {
+            const file = this.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    displayImage.src = e.target.result; // เปลี่ยนรูปบนหน้าจอทันที
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+        
+        // สลับโหมดแก้ไข
         editBtn.addEventListener('click', () => {
             isEditing = !isEditing;
             document.getElementById('text-display').classList.toggle('hidden', isEditing);
@@ -62,62 +71,63 @@
             fileInput.classList.toggle('hidden', !isEditing);
             editBtn.innerText = isEditing ? '❌ ยกเลิก' : '⚙️ แก้ไขข้อมูล';
         });
-
+        
         async function loadData() {
-            try {
-                const { data, error } = await supabaseClient.from('posts').select('*').limit(1).single();
-                if (data) {
-                    currentPostId = data.id;
-                    document.getElementById('display-title').innerText = data.title;
-                    document.getElementById('display-content').innerText = data.content;
-                    document.getElementById('display-image').src = data.image_url || 'https://via.placeholder.com/400';
-                    
-                    document.getElementById('input-title').value = data.title;
-                    document.getElementById('input-content').value = data.content;
-                }
-            } catch (err) {
-                console.error("โหลดข้อมูลไม่สำเร็จ:", err);
+            const { data, error } = await supabaseClient.from('posts').select('*').limit(1).single();
+            if (data) {
+                currentPostId = data.id;
+                document.getElementById('display-title').innerText = data.title;
+                document.getElementById('display-content').innerText = data.content;
+                displayImage.src = data.image_url || 'https://via.placeholder.com/400';
+                document.getElementById('input-title').value = data.title;
+                document.getElementById('input-content').value = data.content;
             }
         }
-
+        
         saveBtn.addEventListener('click', async () => {
             const title = document.getElementById('input-title').value;
             const content = document.getElementById('input-content').value;
-            let imageUrl = document.getElementById('display-image').src;
-
+            let finalImageUrl = displayImage.src;
+        
             saveBtn.disabled = true;
             saveBtn.innerText = "กำลังบันทึก...";
-
-            // อัปโหลดรูปภาพ
+        
+            // ถ้ามีการเลือกไฟล์ใหม่ (เช็คว่าไม่ใช่ลิงก์เดิม)
             if (fileInput.files.length > 0) {
                 const file = fileInput.files[0];
                 const fileName = `${Date.now()}-${file.name}`;
+                
+                // อัปโหลดไป Storage
                 const { data: uploadData, error: uploadError } = await supabaseClient.storage
-                    .from('images')
+                    .from('images') // มั่นใจว่าใน Supabase สร้าง Bucket ชื่อ images และเป็น Public แล้ว
                     .upload(fileName, file);
-
-                if (!uploadError) {
-                    const { data: publicUrl } = supabaseClient.storage.from('images').getPublicUrl(fileName);
-                    imageUrl = publicUrl.publicUrl;
+        
+                if (uploadError) {
+                    alert("อัปโหลดรูปไม่สำเร็จ: " + uploadError.message);
+                    saveBtn.disabled = false;
+                    return;
                 }
+        
+                const { data: publicUrl } = supabaseClient.storage.from('images').getPublicUrl(fileName);
+                finalImageUrl = publicUrl.publicUrl;
             }
-
-            // บันทึก DB
-            const { error } = await supabaseClient
+        
+            // อัปเดต Database
+            const { error: dbError } = await supabaseClient
                 .from('posts')
-                .update({ title, content, image_url: imageUrl })
+                .update({ title, content, image_url: finalImageUrl })
                 .eq('id', currentPostId);
-
-            if (!error) {
+        
+            if (!dbError) {
                 alert("บันทึกสำเร็จ!");
                 location.reload();
             } else {
-                alert("Error: " + error.message);
+                alert("บันทึกข้อมูลไม่สำเร็จ: " + dbError.message);
                 saveBtn.disabled = false;
                 saveBtn.innerText = "💾 บันทึกการเปลี่ยนแปลง";
             }
         });
-
+        
         loadData();
     </script>
 </body>
