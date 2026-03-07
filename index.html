@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Price List</title>
+</head>
+
+<body>
+
+<h2>รายการสินค้า</h2>
+
+<table border="1" id="table">
+</table>
+
+<script>
+
+fetch("https://script.google.com/macros/s/AKfycbz1bXKoR9fK6i8ThqJS9zjpC2CCjVD4HIFv-fjGQjC8u3yDvPAvJU721257hhU59qaj5A/exec")
+.then(res => res.json())
+.then(data => {
+
+let table = document.getElementById("table")
+
+data.forEach(row => {
+
+let tr = document.createElement("tr")
+
+row.forEach(col => {
+
+let td = document.createElement("td")
+td.innerText = col
+
+tr.appendChild(td)
+
+})
+
+table.appendChild(tr)
+
+})
+
+})
+
+</script>
+
+</body>
+</html>
