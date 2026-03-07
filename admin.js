@@ -1,4 +1,4 @@
-const GALLERY_DATA_URL = 'gallery.json';
+const GALLERY_DATA_URL = 'data/gallery.json';
 let currentImages = [];
 
 // โหลดข้อมูลรูปภาพ
