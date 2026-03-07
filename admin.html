@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>จัดการรูปภาพ - Admin</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>จัดการรูปภาพ</h1>
+        <a href="index.html" class="back-btn">กลับหน้าหลัก</a>
+    </header>
+    
+    <main>
+        <div class="admin-section">
+            <h2>เพิ่มรูปภาพใหม่</h2>
+            <form id="uploadForm">
+                <div class="form-group">
+                    <label for="title">ชื่อรูปภาพ:</label>
+                    <input type="text" id="title" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="description">คำอธิบาย:</label>
+                    <textarea id="description" rows="3"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="image">เลือกรูปภาพ:</label>
+                    <input type="file" id="image" accept="image/*" required>
+                    <div id="imagePreview"></div>
+                </div>
+                
+                <button type="submit" class="submit-btn">บันทึก</button>
+            </form>
+        </div>
+        
+        <div class="admin-section">
+            <h2>จัดการรูปภาพที่มีอยู่</h2>
+            <div id="adminGallery" class="admin-gallery"></div>
+        </div>
+    </main>
+
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>แก้ไขรูปภาพ</h2>
+            <form id="editForm">
+                <input type="hidden" id="editId">
+                <div class="form-group">
+                    <label for="editTitle">ชื่อรูปภาพ:</label>
+                    <input type="text" id="editTitle" required>
+                </div>
+                <div class="form-group">
+                    <label for="editDescription">คำอธิบาย:</label>
+                    <textarea id="editDescription" rows="3"></textarea>
+                </div>
+                <button type="submit" class="submit-btn">อัปเดต</button>
+                <button type="button" class="delete-btn" id="deleteBtn">ลบ</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="admin.js"></script>
+</body>
+</html>
