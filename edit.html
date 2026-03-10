@@ -6,6 +6,7 @@
     <title>แก้ไขสินค้า | ร้านตรายางออนไลน์</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        /* CSS เหมือนเดิมทั้งหมด */
         * {
             margin: 0;
             padding: 0;
@@ -416,7 +417,7 @@
             </form>
             
             <div class="back-link">
-                <a href="../index.html">
+                <a href="index.html">
                     <i class="fas fa-arrow-left"></i> กลับไปหน้าร้านค้า
                 </a>
             </div>
@@ -612,7 +613,7 @@
             if (!productId) {
                 showMessage('ไม่พบรหัสสินค้า', 'error');
                 setTimeout(() => {
-                    window.location.href = '../index.html';
+                    window.location.href = 'index.html';
                 }, 2000);
                 return;
             }
@@ -746,7 +747,7 @@
                 
                 showMessage('บันทึกการเปลี่ยนแปลงสำเร็จ!', 'success');
                 setTimeout(() => {
-                    window.location.href = '../index.html';
+                    window.location.href = 'index.html';
                 }, 1500);
                 
             } catch (error) {
@@ -800,7 +801,7 @@
         });
 
         window.goBack = function() {
-            window.location.href = '../index.html';
+            window.location.href = 'index.html';
         };
 
         // เริ่มต้นการทำงาน
