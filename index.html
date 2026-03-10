@@ -602,11 +602,12 @@
                    id="searchInput" 
                    class="search-input" 
                    placeholder="ค้นหาตรายาง... (ชื่อ, ขนาด)"
-                   autocomplete="off">
-            <button class="btn-main" onclick="searchProduct()">
+                   autocomplete="off"
+                   value="">
+            <button class="btn-main" onclick="window.searchProduct()">
                 <i class="fas fa-search"></i> ค้นหา
             </button>
-            <button class="btn-main btn-secondary" onclick="clearAllFilters()" style="display: none;" id="clearBtn">
+            <button class="btn-main btn-secondary" onclick="window.clearAllFilters()" style="display: none;" id="clearBtn">
                 <i class="fas fa-times"></i> ล้าง
             </button>
         </div>
@@ -640,7 +641,7 @@
             <i class="fas fa-box-open"></i>
             <h3>ไม่พบสินค้า</h3>
             <p id="empty-message"></p>
-            <button class="btn-main" onclick="clearAllFilters()">
+            <button class="btn-main" onclick="window.clearAllFilters()">
                 <i class="fas fa-times"></i> ล้างตัวกรอง
             </button>
         </div>
@@ -656,19 +657,12 @@
         <p style="font-size: 0.9rem;">คำนวณราคาจากพื้นที่ ตร.ซม. x อัตราที่กำหนด</p>
     </footer>
 
-    <script type="module">
-        import { 
-            getCategories, 
-            getProducts, 
-            countProducts,
-            getPriceRate,
-            getImageUrl,
-            calculatePrice,
-            parseSize,
-            priceRate
-        } from '../api/supabase.js';
-
-        // State
+    <script>
+        // ==================== ตัวแปร Global ====================
+        const SUPABASE_URL = 'https://whwuvqftcxmiyodnwmqe.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indod3V2cWZ0Y3htaXlvZG53bXFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE2MjY4NjEsImV4cCI6MjA1NzIwMjg2MX0.jCzN2Kz5B62hCCHmQ-5uUXMgD-pUy6dX0VOH7R8mlHU';
+        
+        let priceRate = 2.5;
         let currentCategory = 0;
         let currentSearch = '';
         let currentPage = 1;
@@ -677,135 +671,196 @@
         const perPage = 12;
         let categories = [];
         let currentPriceRate = priceRate;
+        let usingSampleData = false;
 
-        // Initialize
-        document.addEventListener('DOMContentLoaded', async () => {
-            document.getElementById('currentYear').textContent = new Date().getFullYear();
+        // ==================== ฟังก์ชันเรียก API ====================
+        async function supabaseRequest(endpoint, options = {}) {
+            const { method = 'GET', data = null, params = {} } = options;
             
-            // Get URL parameters
-            const urlParams = new URLSearchParams(window.location.search);
-            currentCategory = parseInt(urlParams.get('category')) || 0;
-            currentSearch = urlParams.get('search') || '';
-            currentPage = parseInt(urlParams.get('page')) || 1;
+            const queryParams = new URLSearchParams();
+            Object.keys(params).forEach(key => {
+                queryParams.append(key, params[key]);
+            });
             
-            // Set search input value
-            if (currentSearch) {
-                document.getElementById('searchInput').value = currentSearch;
-                document.getElementById('clearBtn').style.display = 'flex';
-            }
+            const url = `${SUPABASE_URL}/rest/v1/${endpoint}${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
             
-            if (currentCategory > 0 || currentSearch) {
-                document.getElementById('clearBtn').style.display = 'flex';
-            }
+            const headers = {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=representation'
+            };
             
             try {
-                // Get price rate
-                currentPriceRate = await getPriceRate();
-                
-                await loadCategories();
-                await loadProducts();
-                updateFilterInfo();
-                
-            } catch (error) {
-                console.error('Error loading data:', error);
-                showAlert('ไม่สามารถเชื่อมต่อกับ API ได้', 'error');
-                loadSampleData();
-            }
-        });
-
-        // Load categories
-        async function loadCategories() {
-            try {
-                categories = await getCategories();
-                
-                const container = document.getElementById('categoryFilter');
-                container.innerHTML = '';
-                
-                // Add "All" button
-                const allBtn = document.createElement('button');
-                allBtn.className = `category-btn ${currentCategory === 0 ? 'active' : ''}`;
-                allBtn.dataset.category = '0';
-                allBtn.onclick = () => filterProducts(0);
-                allBtn.innerHTML = '<i class="fas fa-th-large"></i> ทั้งหมด';
-                container.appendChild(allBtn);
-                
-                // Add category buttons
-                categories.forEach(cat => {
-                    const btn = document.createElement('button');
-                    btn.className = `category-btn ${currentCategory === cat.prod_role_id ? 'active' : ''}`;
-                    btn.dataset.category = cat.prod_role_id;
-                    btn.onclick = () => filterProducts(cat.prod_role_id);
-                    btn.innerHTML = `<i class="fas fa-tag"></i> ${cat.prod_role_name}`;
-                    container.appendChild(btn);
+                const response = await fetch(url, {
+                    method,
+                    headers,
+                    body: data ? JSON.stringify(data) : undefined
                 });
                 
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                return await response.json();
             } catch (error) {
-                console.error('Error loading categories:', error);
+                console.error('Supabase API error:', error);
                 throw error;
             }
         }
 
-        // Load products
-        async function loadProducts() {
-            try {
-                document.getElementById('loading').style.display = 'block';
-                document.getElementById('products-grid').style.display = 'none';
-                document.getElementById('empty-state').style.display = 'none';
-                document.getElementById('pagination').style.display = 'none';
-                
-                // Get products
-                const products = await getProducts({
-                    category: currentCategory,
-                    search: currentSearch,
-                    page: currentPage,
-                    limit: perPage
-                });
-                
-                // Get total count
-                totalProducts = await countProducts({
-                    category: currentCategory,
-                    search: currentSearch
-                });
-                
-                totalPages = Math.ceil(totalProducts / perPage);
-                
-                // Update products count display
-                updateProductsCount();
-                
-                // Update section title
-                updateSectionTitle();
-                
-                if (products.length > 0) {
-                    renderProducts(products);
-                    renderPagination();
-                    document.getElementById('loading').style.display = 'none';
-                    document.getElementById('products-grid').style.display = 'grid';
-                } else {
-                    document.getElementById('loading').style.display = 'none';
-                    document.getElementById('empty-state').style.display = 'block';
-                    document.getElementById('empty-message').textContent = getEmptyMessage();
+        async function getCategories() {
+            return supabaseRequest('products_role', {
+                params: {
+                    select: '*',
+                    order: 'prod_role_name.asc'
                 }
+            });
+        }
+
+        async function getShapes() {
+            return supabaseRequest('shapes', {
+                params: {
+                    select: '*',
+                    order: 'shape_name.asc'
+                }
+            });
+        }
+
+        async function getPriceRate() {
+            try {
+                const settings = await supabaseRequest('settings', {
+                    params: {
+                        select: '*',
+                        setting_key: 'eq.price_rate'
+                    }
+                });
                 
+                if (settings && settings.length > 0) {
+                    priceRate = parseFloat(settings[0].setting_value);
+                }
             } catch (error) {
-                console.error('Error loading products:', error);
-                document.getElementById('loading').style.display = 'none';
-                showAlert('เกิดข้อผิดพลาดในการโหลดสินค้า', 'error');
+                console.log('Using default price rate:', priceRate);
             }
+            return priceRate;
         }
 
-        // Update products count display
-        function updateProductsCount() {
-            if (totalProducts > 0) {
-                const start = (currentPage - 1) * perPage + 1;
-                const end = Math.min(currentPage * perPage, totalProducts);
-                document.getElementById('products-count').textContent = 
-                    `แสดง ${start}-${end} จาก ${totalProducts} รายการ (อัตราคำนวณ ${currentPriceRate} บาท/ตร.ซม.)`;
-            } else {
-                document.getElementById('products-count').textContent = 'ไม่พบสินค้า';
+        async function getProducts(options = {}) {
+            const {
+                category = 0,
+                search = '',
+                page = 1,
+                limit = 12
+            } = options;
+            
+            let params = {
+                select: '*, products_role(*), shapes(*)',
+                order: 'products_id.desc'
+            };
+            
+            if (category > 0) {
+                params.prod_role_id = `eq.${category}`;
             }
+            
+            if (search) {
+                params.or = `(products_name.ilike.*${search}*,size.ilike.*${search}*)`;
+            }
+            
+            const from = (page - 1) * limit;
+            params.limit = limit;
+            params.offset = from;
+            
+            return supabaseRequest('products', { params });
         }
 
-        // Render products
+        async function countProducts(options = {}) {
+            const { category = 0, search = '' } = options;
+            
+            let params = {
+                select: 'products_id'
+            };
+            
+            if (category > 0) {
+                params.prod_role_id = `eq.${category}`;
+            }
+            
+            if (search) {
+                params.or = `(products_name.ilike.*${search}*,size.ilike.*${search}*)`;
+            }
+            
+            const result = await supabaseRequest('products', { params });
+            return result.length;
+        }
+
+        // ==================== ฟังก์ชันช่วยเหลือ ====================
+        function getImageUrl(imageName) {
+            if (!imageName) {
+                return 'https://via.placeholder.com/300x200/667eea/ffffff?text=No+Image';
+            }
+            
+            if (imageName.startsWith('http')) {
+                return imageName;
+            }
+            
+            const githubBase = 'https://raw.githubusercontent.com/PEAW1026/Traiyang_Shop/main/image/';
+            let filename = imageName;
+            if (imageName.includes('/')) {
+                filename = imageName.split('/').pop();
+            }
+            
+            return githubBase + encodeURIComponent(filename);
+        }
+
+        function calculatePrice(width, length, customRate = null) {
+            const rate = customRate !== null ? customRate : priceRate;
+            const area = parseFloat(width) * parseFloat(length);
+            return area * rate;
+        }
+
+        function parseSize(sizeString) {
+            let width = 0;
+            let length = 0;
+            
+            if (!sizeString) return { width, length };
+            
+            const match = sizeString.match(/(\d+(?:\.\d+)?)\s*[xX]\s*(\d+(?:\.\d+)?)/);
+            if (match) {
+                width = parseFloat(match[1]);
+                length = parseFloat(match[2]);
+            }
+            
+            return { width, length };
+        }
+
+        // ==================== ฟังก์ชันแสดงผล ====================
+        function showAlert(message, type = 'info') {
+            const alertContainer = document.getElementById('alert-container');
+            const alertId = 'alert-' + Date.now();
+            
+            const alertClass = type === 'success' ? 'alert-success' : 
+                              type === 'error' ? 'alert-error' : 'alert-info';
+            
+            const alertHtml = `
+                <div id="${alertId}" class="alert ${alertClass}">
+                    <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}"></i>
+                    ${message}
+                    <button onclick="document.getElementById('${alertId}').remove()" 
+                            style="background:none;border:none;color:inherit;margin-left:10px;cursor:pointer;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+            
+            alertContainer.insertAdjacentHTML('beforeend', alertHtml);
+            
+            setTimeout(() => {
+                const alertElement = document.getElementById(alertId);
+                if (alertElement) {
+                    alertElement.remove();
+                }
+            }, 5000);
+        }
+
         function renderProducts(products) {
             const grid = document.getElementById('products-grid');
             grid.innerHTML = '';
@@ -909,7 +964,7 @@
                             <span>${stockText}</span>
                         </div>
                         
-                        <button class="btn-edit" onclick="editProduct(${product.products_id})">
+                        <button class="btn-edit" onclick="window.editProduct(${product.products_id})">
                             <i class="fas fa-edit"></i> แก้ไขสินค้า
                         </button>
                     </div>
@@ -919,7 +974,6 @@
             });
         }
 
-        // Render pagination
         function renderPagination() {
             if (totalPages <= 1) {
                 document.getElementById('pagination').style.display = 'none';
@@ -930,16 +984,14 @@
             container.innerHTML = '';
             container.style.display = 'flex';
             
-            // Previous button
             if (currentPage > 1) {
                 const prevBtn = document.createElement('button');
                 prevBtn.className = 'page-btn';
-                prevBtn.onclick = () => changePage(currentPage - 1);
+                prevBtn.onclick = () => window.changePage(currentPage - 1);
                 prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
                 container.appendChild(prevBtn);
             }
             
-            // Page buttons
             const maxPagesToShow = 5;
             let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
             let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
@@ -951,75 +1003,26 @@
             for (let i = startPage; i <= endPage; i++) {
                 const pageBtn = document.createElement('button');
                 pageBtn.className = `page-btn ${i === currentPage ? 'active' : ''}`;
-                pageBtn.onclick = () => changePage(i);
+                pageBtn.onclick = () => window.changePage(i);
                 pageBtn.textContent = i;
                 container.appendChild(pageBtn);
             }
             
-            // Next button
             if (currentPage < totalPages) {
                 const nextBtn = document.createElement('button');
                 nextBtn.className = 'page-btn';
-                nextBtn.onclick = () => changePage(currentPage + 1);
+                nextBtn.onclick = () => window.changePage(currentPage + 1);
                 nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
                 container.appendChild(nextBtn);
             }
             
-            // Page info
             const pageInfo = document.createElement('span');
             pageInfo.className = 'page-info';
             pageInfo.textContent = `หน้า ${currentPage} จาก ${totalPages}`;
             container.appendChild(pageInfo);
         }
 
-        // Update section title
-        function updateSectionTitle() {
-            const title = document.getElementById('sectionTitle');
-            if (currentSearch) {
-                title.innerHTML = `<i class="fa-solid fa-stamp"></i> ผลการค้นหา: "${currentSearch}"`;
-            } else if (currentCategory > 0) {
-                const category = categories.find(c => c.prod_role_id === currentCategory);
-                title.innerHTML = `<i class="fa-solid fa-stamp"></i> สินค้าหมวด: ${category?.prod_role_name || ''}`;
-            } else {
-                title.innerHTML = `<i class="fa-solid fa-stamp"></i> สินค้าทั้งหมด`;
-            }
-        }
-
-        // Update filter info
-        function updateFilterInfo() {
-            const filterInfo = document.getElementById('filterInfo');
-            if (currentSearch || currentCategory > 0) {
-                filterInfo.style.display = 'block';
-                let html = '<i class="fas fa-filter"></i> ';
-                
-                if (currentSearch) {
-                    html += `ค้นหา: "${currentSearch}"`;
-                }
-                
-                if (currentCategory > 0) {
-                    const category = categories.find(c => c.prod_role_id === currentCategory);
-                    if (currentSearch) html += ' | ';
-                    html += `หมวด: ${category?.prod_role_name || ''}`;
-                }
-                
-                filterInfo.innerHTML = html;
-            } else {
-                filterInfo.style.display = 'none';
-            }
-        }
-
-        // Get empty message
-        function getEmptyMessage() {
-            if (currentSearch) {
-                return `ไม่พบสินค้าสำหรับ "${currentSearch}"`;
-            } else if (currentCategory > 0) {
-                return 'ไม่มีสินค้าในหมวดหมู่นี้';
-            } else {
-                return 'ยังไม่มีสินค้าในขณะนี้';
-            }
-        }
-
-        // Navigation functions
+        // ==================== ฟังก์ชัน Navigation ====================
         window.searchProduct = function() {
             const searchTerm = document.getElementById('searchInput').value.trim();
             const url = new URL(window.location.href);
@@ -1075,104 +1078,196 @@
         };
 
         window.editProduct = function(productId) {
-            window.location.href = `edit.html?id=${productId}`;
+            window.location.href = `admin/edit.html?id=${productId}`;
         };
 
-        // Show alert
-        function showAlert(message, type = 'info') {
-            const alertContainer = document.getElementById('alert-container');
-            const alertId = 'alert-' + Date.now();
-            
-            const alertClass = type === 'success' ? 'alert-success' : 
-                              type === 'error' ? 'alert-error' : 'alert-info';
-            
-            const alertHtml = `
-                <div id="${alertId}" class="alert ${alertClass}">
-                    <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}"></i>
-                    ${message}
-                    <button onclick="document.getElementById('${alertId}').remove()" 
-                            style="background:none;border:none;color:inherit;margin-left:10px;cursor:pointer;">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-            `;
-            
-            alertContainer.insertAdjacentHTML('beforeend', alertHtml);
-            
-            setTimeout(() => {
-                const alertElement = document.getElementById(alertId);
-                if (alertElement) {
-                    alertElement.remove();
-                }
-            }, 5000);
+        // ==================== ฟังก์ชันโหลดข้อมูล ====================
+        async function loadCategories() {
+            try {
+                const container = document.getElementById('categoryFilter');
+                container.innerHTML = '';
+                
+                const allBtn = document.createElement('button');
+                allBtn.className = `category-btn ${currentCategory === 0 ? 'active' : ''}`;
+                allBtn.dataset.category = '0';
+                allBtn.onclick = () => window.filterProducts(0);
+                allBtn.innerHTML = '<i class="fas fa-th-large"></i> ทั้งหมด';
+                container.appendChild(allBtn);
+                
+                categories.forEach(cat => {
+                    const btn = document.createElement('button');
+                    btn.className = `category-btn ${currentCategory === cat.prod_role_id ? 'active' : ''}`;
+                    btn.dataset.category = cat.prod_role_id;
+                    btn.onclick = () => window.filterProducts(cat.prod_role_id);
+                    btn.innerHTML = `<i class="fas fa-tag"></i> ${cat.prod_role_name}`;
+                    container.appendChild(btn);
+                });
+                
+            } catch (error) {
+                console.error('Error loading categories:', error);
+            }
         }
 
-        // Load sample data for fallback
+        function updateProductsCount() {
+            if (totalProducts > 0) {
+                const start = (currentPage - 1) * perPage + 1;
+                const end = Math.min(currentPage * perPage, totalProducts);
+                document.getElementById('products-count').textContent = 
+                    `แสดง ${start}-${end} จาก ${totalProducts} รายการ (อัตราคำนวณ ${currentPriceRate} บาท/ตร.ซม.)${usingSampleData ? ' - โหมดตัวอย่าง' : ''}`;
+            } else {
+                document.getElementById('products-count').textContent = `ไม่พบสินค้า${usingSampleData ? ' - โหมดตัวอย่าง' : ''}`;
+            }
+        }
+
+        function updateSectionTitle() {
+            const title = document.getElementById('sectionTitle');
+            if (currentSearch) {
+                title.innerHTML = `<i class="fa-solid fa-stamp"></i> ผลการค้นหา: "${currentSearch}"`;
+            } else if (currentCategory > 0) {
+                const category = categories.find(c => c.prod_role_id === currentCategory);
+                title.innerHTML = `<i class="fa-solid fa-stamp"></i> สินค้าหมวด: ${category?.prod_role_name || ''}`;
+            } else {
+                title.innerHTML = `<i class="fa-solid fa-stamp"></i> สินค้าทั้งหมด`;
+            }
+        }
+
+        function updateFilterInfo() {
+            const filterInfo = document.getElementById('filterInfo');
+            if (currentSearch || currentCategory > 0) {
+                filterInfo.style.display = 'block';
+                let html = '<i class="fas fa-filter"></i> ';
+                
+                if (currentSearch) {
+                    html += `ค้นหา: "${currentSearch}"`;
+                }
+                
+                if (currentCategory > 0) {
+                    const category = categories.find(c => c.prod_role_id === currentCategory);
+                    if (currentSearch) html += ' | ';
+                    html += `หมวด: ${category?.prod_role_name || ''}`;
+                }
+                
+                filterInfo.innerHTML = html;
+            } else {
+                filterInfo.style.display = 'none';
+            }
+        }
+
+        function getEmptyMessage() {
+            if (currentSearch) {
+                return `ไม่พบสินค้าสำหรับ "${currentSearch}"`;
+            } else if (currentCategory > 0) {
+                return 'ไม่มีสินค้าในหมวดหมู่นี้';
+            } else {
+                return 'ยังไม่มีสินค้าในขณะนี้';
+            }
+        }
+
+        // ==================== ข้อมูลตัวอย่างสำรอง ====================
         function loadSampleData() {
+            usingSampleData = true;
+            
             const sampleCategories = [
-                { prod_role_id: 1, prod_role_name: 'ด้ามธรรมดา' },
-                { prod_role_id: 2, prod_role_name: 'ด้ามหมึกในตัว' }
+                { prod_role_id: 1, prod_role_name: 'ตรายางด่วน' },
+                { prod_role_id: 2, prod_role_name: 'ตรายางบริษัท' },
+                { prod_role_id: 3, prod_role_name: 'ตรายางชื่อบุคคล' },
+                { prod_role_id: 4, prod_role_name: 'ตรายางวันที่' },
+                { prod_role_id: 5, prod_role_name: 'ตรายางตัวเลข' }
             ];
             
             categories = sampleCategories;
             
-            const container = document.getElementById('categoryFilter');
-            container.innerHTML = '';
-            
-            const allBtn = document.createElement('button');
-            allBtn.className = `category-btn ${currentCategory === 0 ? 'active' : ''}`;
-            allBtn.dataset.category = '0';
-            allBtn.onclick = () => filterProducts(0);
-            allBtn.innerHTML = '<i class="fas fa-th-large"></i> ทั้งหมด';
-            container.appendChild(allBtn);
-            
-            sampleCategories.forEach(cat => {
-                const btn = document.createElement('button');
-                btn.className = `category-btn ${currentCategory === cat.prod_role_id ? 'active' : ''}`;
-                btn.dataset.category = cat.prod_role_id;
-                btn.onclick = () => filterProducts(cat.prod_role_id);
-                btn.innerHTML = `<i class="fas fa-tag"></i> ${cat.prod_role_name}`;
-                container.appendChild(btn);
-            });
-            
-            // Sample products
             const sampleProducts = [
                 {
                     products_id: 1,
-                    products_name: 'ตรายางบริษัท AAA',
+                    products_name: 'ตรายางด่วน "รับทราบ"',
                     size: '3x5 ซม.',
-                    products_price: 250.00,
+                    products_price: 120.00,
                     prod_role_id: 1,
-                    products_role: { prod_role_name: 'ด้ามธรรมดา' },
+                    products_role: { prod_role_name: 'ตรายางด่วน' },
                     shapes: { shape_name: 'สี่เหลี่ยม' },
-                    prod_img: 'sample_stamp_1.png',
-                    prod_stock: 10
+                    prod_img: 'stamp1.png',
+                    prod_stock: 50
                 },
                 {
                     products_id: 2,
-                    products_name: 'ตรายางชื่อบุคคล',
-                    size: '2x5 ซม.',
-                    products_price: 150.00,
+                    products_name: 'ตรายางบริษัท ABC จำกัด',
+                    size: '4x7 ซม.',
+                    products_price: 350.00,
                     prod_role_id: 2,
-                    products_role: { prod_role_name: 'ด้ามหมึกในตัว' },
-                    shapes: { shape_name: 'สี่เหลี่ยมมน' },
-                    prod_img: 'sample_stamp_2.png',
-                    prod_stock: 5
+                    products_role: { prod_role_name: 'ตรายางบริษัท' },
+                    shapes: { shape_name: 'สี่เหลี่ยม' },
+                    prod_img: 'stamp2.png',
+                    prod_stock: 20
                 },
                 {
                     products_id: 3,
-                    products_name: 'ตรายางที่อยู่',
-                    size: '4x6 ซม.',
-                    products_price: 350.00,
+                    products_name: 'ตรายางชื่อ-นามสกุล',
+                    size: '2x6 ซม.',
+                    products_price: 180.00,
+                    prod_role_id: 3,
+                    products_role: { prod_role_name: 'ตรายางชื่อบุคคล' },
+                    shapes: { shape_name: 'สี่เหลี่ยมมน' },
+                    prod_img: 'stamp3.png',
+                    prod_stock: 30
+                },
+                {
+                    products_id: 4,
+                    products_name: 'ตรายางวันที่หมุนได้',
+                    size: '2x4 ซม.',
+                    products_price: 280.00,
+                    prod_role_id: 4,
+                    products_role: { prod_role_name: 'ตรายางวันที่' },
+                    shapes: { shape_name: 'สี่เหลี่ยม' },
+                    prod_img: 'stamp4.png',
+                    prod_stock: 35
+                },
+                {
+                    products_id: 5,
+                    products_name: 'ตรายางตัวเลข 0-9',
+                    size: '3x10 ซม.',
+                    products_price: 280.00,
+                    prod_role_id: 5,
+                    products_role: { prod_role_name: 'ตรายางตัวเลข' },
+                    shapes: { shape_name: 'สี่เหลี่ยม' },
+                    prod_img: 'stamp5.png',
+                    prod_stock: 25
+                },
+                {
+                    products_id: 6,
+                    products_name: 'ตรายาง "ชำระเงินแล้ว"',
+                    size: '3x6 ซม.',
+                    products_price: 150.00,
                     prod_role_id: 1,
-                    products_role: { prod_role_name: 'ด้ามธรรมดา' },
-                    shapes: { shape_name: 'วงรี' },
-                    prod_img: 'sample_stamp_3.png',
-                    prod_stock: 3
+                    products_role: { prod_role_name: 'ตรายางด่วน' },
+                    shapes: { shape_name: 'สี่เหลี่ยมมน' },
+                    prod_img: 'stamp6.png',
+                    prod_stock: 45
+                },
+                {
+                    products_id: 7,
+                    products_name: 'ตรายางห้างหุ้นส่วน',
+                    size: '5x8 ซม.',
+                    products_price: 450.00,
+                    prod_role_id: 2,
+                    products_role: { prod_role_name: 'ตรายางบริษัท' },
+                    shapes: { shape_name: 'สี่เหลี่ยม' },
+                    prod_img: 'stamp7.png',
+                    prod_stock: 10
+                },
+                {
+                    products_id: 8,
+                    products_name: 'ตรายางชื่อ-ที่อยู่',
+                    size: '3x8 ซม.',
+                    products_price: 250.00,
+                    prod_role_id: 3,
+                    products_role: { prod_role_name: 'ตรายางชื่อบุคคล' },
+                    shapes: { shape_name: 'สี่เหลี่ยม' },
+                    prod_img: 'stamp8.png',
+                    prod_stock: 25
                 }
             ];
             
-            // Filter sample products
             let filtered = [...sampleProducts];
             
             if (currentCategory > 0) {
@@ -1204,16 +1299,108 @@
                 renderProducts(pagedProducts);
                 renderPagination();
                 document.getElementById('products-grid').style.display = 'grid';
+                document.getElementById('empty-state').style.display = 'none';
             } else {
                 document.getElementById('empty-state').style.display = 'block';
                 document.getElementById('empty-message').textContent = getEmptyMessage() + ' (โหมดตัวอย่าง)';
             }
+            
+            updateSectionTitle();
+            updateFilterInfo();
         }
 
+        // ==================== ฟังก์ชันหลัก ====================
+        async function loadProducts() {
+            try {
+                document.getElementById('loading').style.display = 'block';
+                document.getElementById('products-grid').style.display = 'none';
+                document.getElementById('empty-state').style.display = 'none';
+                document.getElementById('pagination').style.display = 'none';
+                
+                const products = await getProducts({
+                    category: currentCategory,
+                    search: currentSearch,
+                    page: currentPage,
+                    limit: perPage
+                });
+                
+                totalProducts = await countProducts({
+                    category: currentCategory,
+                    search: currentSearch
+                });
+                
+                totalPages = Math.ceil(totalProducts / perPage);
+                
+                updateProductsCount();
+                updateSectionTitle();
+                
+                if (products.length > 0) {
+                    renderProducts(products);
+                    renderPagination();
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('products-grid').style.display = 'grid';
+                    document.getElementById('empty-state').style.display = 'none';
+                } else {
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('empty-state').style.display = 'block';
+                    document.getElementById('empty-message').textContent = getEmptyMessage();
+                }
+                
+            } catch (error) {
+                console.error('Error loading products:', error);
+                document.getElementById('loading').style.display = 'none';
+                showAlert('ไม่สามารถโหลดข้อมูลจากฐานข้อมูลได้ ใช้ข้อมูลตัวอย่างแทน', 'error');
+                loadSampleData();
+            }
+        }
+
+        async function init() {
+            document.getElementById('currentYear').textContent = new Date().getFullYear();
+            
+            const urlParams = new URLSearchParams(window.location.search);
+            currentCategory = parseInt(urlParams.get('category')) || 0;
+            currentSearch = urlParams.get('search') || '';
+            currentPage = parseInt(urlParams.get('page')) || 1;
+            
+            document.getElementById('searchInput').value = currentSearch;
+            
+            if (currentSearch || currentCategory > 0) {
+                document.getElementById('clearBtn').style.display = 'flex';
+            }
+            
+            try {
+                currentPriceRate = await getPriceRate();
+                categories = await getCategories();
+                await loadCategories();
+                await loadProducts();
+                updateFilterInfo();
+                
+                showAlert('เชื่อมต่อฐานข้อมูลสำเร็จ', 'success');
+                
+            } catch (error) {
+                console.error('Error initializing:', error);
+                showAlert('ไม่สามารถเชื่อมต่อฐานข้อมูลได้ ใช้ข้อมูลตัวอย่างแทน', 'error');
+                
+                usingSampleData = true;
+                categories = [
+                    { prod_role_id: 1, prod_role_name: 'ตรายางด่วน' },
+                    { prod_role_id: 2, prod_role_name: 'ตรายางบริษัท' },
+                    { prod_role_id: 3, prod_role_name: 'ตรายางชื่อบุคคล' },
+                    { prod_role_id: 4, prod_role_name: 'ตรายางวันที่' },
+                    { prod_role_id: 5, prod_role_name: 'ตรายางตัวเลข' }
+                ];
+                await loadCategories();
+                loadSampleData();
+            }
+        }
+
+        // เริ่มต้นการทำงาน
+        document.addEventListener('DOMContentLoaded', init);
+        
         // Enter key on search
         document.getElementById('searchInput').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
-                searchProduct();
+                window.searchProduct();
             }
         });
     </script>
