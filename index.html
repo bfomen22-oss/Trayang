@@ -718,15 +718,6 @@
             });
         }
 
-        async function getShapes() {
-            return supabaseRequest('shapes', {
-                params: {
-                    select: '*',
-                    order: 'shape_name.asc'
-                }
-            });
-        }
-
         async function getPriceRate() {
             try {
                 const settings = await supabaseRequest('settings', {
@@ -1231,39 +1222,6 @@
                     products_role: { prod_role_name: 'ตรายางตัวเลข' },
                     shapes: { shape_name: 'สี่เหลี่ยม' },
                     prod_img: 'stamp5.png',
-                    prod_stock: 25
-                },
-                {
-                    products_id: 6,
-                    products_name: 'ตรายาง "ชำระเงินแล้ว"',
-                    size: '3x6 ซม.',
-                    products_price: 150.00,
-                    prod_role_id: 1,
-                    products_role: { prod_role_name: 'ตรายางด่วน' },
-                    shapes: { shape_name: 'สี่เหลี่ยมมน' },
-                    prod_img: 'stamp6.png',
-                    prod_stock: 45
-                },
-                {
-                    products_id: 7,
-                    products_name: 'ตรายางห้างหุ้นส่วน',
-                    size: '5x8 ซม.',
-                    products_price: 450.00,
-                    prod_role_id: 2,
-                    products_role: { prod_role_name: 'ตรายางบริษัท' },
-                    shapes: { shape_name: 'สี่เหลี่ยม' },
-                    prod_img: 'stamp7.png',
-                    prod_stock: 10
-                },
-                {
-                    products_id: 8,
-                    products_name: 'ตรายางชื่อ-ที่อยู่',
-                    size: '3x8 ซม.',
-                    products_price: 250.00,
-                    prod_role_id: 3,
-                    products_role: { prod_role_name: 'ตรายางชื่อบุคคล' },
-                    shapes: { shape_name: 'สี่เหลี่ยม' },
-                    prod_img: 'stamp8.png',
                     prod_stock: 25
                 }
             ];
