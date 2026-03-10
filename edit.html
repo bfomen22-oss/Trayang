@@ -222,6 +222,13 @@
             display: flex;
         }
 
+        .message.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+            display: flex;
+        }
+
         .loading {
             text-align: center;
             padding: 40px;
@@ -438,6 +445,8 @@
         let priceRate = 2.5;
         const urlParams = new URLSearchParams(window.location.search);
         const productId = urlParams.get('id');
+        let usingSampleData = false;
+        let sampleProducts = [];
 
         // ==================== ฟังก์ชันเรียก API ====================
         async function supabaseRequest(endpoint, options = {}) {
@@ -534,6 +543,97 @@
             });
         }
 
+        // ==================== ข้อมูลตัวอย่าง ====================
+        function getSampleCategories() {
+            return [
+                { prod_role_id: 1, prod_role_name: 'ตรายางด่วน' },
+                { prod_role_id: 2, prod_role_name: 'ตรายางบริษัท' },
+                { prod_role_id: 3, prod_role_name: 'ตรายางชื่อบุคคล' },
+                { prod_role_id: 4, prod_role_name: 'ตรายางวันที่' },
+                { prod_role_id: 5, prod_role_name: 'ตรายางตัวเลข' }
+            ];
+        }
+
+        function getSampleShapes() {
+            return [
+                { shape_id: 1, shape_name: 'สี่เหลี่ยม' },
+                { shape_id: 2, shape_name: 'สี่เหลี่ยมมน' },
+                { shape_id: 3, shape_name: 'วงกลม' },
+                { shape_id: 4, shape_name: 'วงรี' },
+                { shape_id: 5, shape_name: 'สามเหลี่ยม' }
+            ];
+        }
+
+        function getSampleProducts() {
+            return [
+                {
+                    products_id: 1,
+                    products_name: 'ตรายางด่วน "รับทราบ"',
+                    size: '3x5 ซม.',
+                    products_price: 120.00,
+                    prod_role_id: 1,
+                    shape_id: 1,
+                    products_role: { prod_role_name: 'ตรายางด่วน' },
+                    shapes: { shape_name: 'สี่เหลี่ยม' },
+                    prod_img: 'stamp1.png',
+                    prod_stock: 50
+                },
+                {
+                    products_id: 2,
+                    products_name: 'ตรายางบริษัท ABC จำกัด',
+                    size: '4x7 ซม.',
+                    products_price: 350.00,
+                    prod_role_id: 2,
+                    shape_id: 1,
+                    products_role: { prod_role_name: 'ตรายางบริษัท' },
+                    shapes: { shape_name: 'สี่เหลี่ยม' },
+                    prod_img: 'stamp2.png',
+                    prod_stock: 20
+                },
+                {
+                    products_id: 3,
+                    products_name: 'ตรายางชื่อ-นามสกุล',
+                    size: '2x6 ซม.',
+                    products_price: 180.00,
+                    prod_role_id: 3,
+                    shape_id: 2,
+                    products_role: { prod_role_name: 'ตรายางชื่อบุคคล' },
+                    shapes: { shape_name: 'สี่เหลี่ยมมน' },
+                    prod_img: 'stamp3.png',
+                    prod_stock: 30
+                },
+                {
+                    products_id: 4,
+                    products_name: 'ตรายางวันที่หมุนได้',
+                    size: '2x4 ซม.',
+                    products_price: 280.00,
+                    prod_role_id: 4,
+                    shape_id: 1,
+                    products_role: { prod_role_name: 'ตรายางวันที่' },
+                    shapes: { shape_name: 'สี่เหลี่ยม' },
+                    prod_img: 'stamp4.png',
+                    prod_stock: 35
+                },
+                {
+                    products_id: 5,
+                    products_name: 'ตรายางตัวเลข 0-9',
+                    size: '3x10 ซม.',
+                    products_price: 280.00,
+                    prod_role_id: 5,
+                    shape_id: 1,
+                    products_role: { prod_role_name: 'ตรายางตัวเลข' },
+                    shapes: { shape_name: 'สี่เหลี่ยม' },
+                    prod_img: 'stamp5.png',
+                    prod_stock: 25
+                }
+            ];
+        }
+
+        function getSampleProductById(id) {
+            const products = getSampleProducts();
+            return products.find(p => p.products_id === parseInt(id)) || null;
+        }
+
         // ==================== ฟังก์ชันช่วยเหลือ ====================
         function getImageUrl(imageName) {
             if (!imageName) {
@@ -608,6 +708,87 @@
             }
         }
 
+        // ==================== ฟังก์ชันโหลดข้อมูลตัวอย่าง ====================
+        function loadSampleData() {
+            usingSampleData = true;
+            
+            // ตรวจสอบว่ามี productId หรือไม่
+            if (!productId) {
+                showMessage('ไม่พบรหัสสินค้า', 'error');
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 2000);
+                return;
+            }
+
+            const product = getSampleProductById(productId);
+            
+            if (!product) {
+                showMessage('ไม่พบสินค้าที่ต้องการแก้ไข (โหมดตัวอย่าง)', 'error');
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 2000);
+                return;
+            }
+
+            // โหลด categories
+            const categories = getSampleCategories();
+            const categorySelect = document.getElementById('product_category');
+            categories.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat.prod_role_id;
+                option.textContent = cat.prod_role_name;
+                if (cat.prod_role_id === product.prod_role_id) {
+                    option.selected = true;
+                }
+                categorySelect.appendChild(option);
+            });
+
+            // โหลด shapes
+            const shapes = getSampleShapes();
+            const shapeSelect = document.getElementById('product_shape');
+            shapes.forEach(shape => {
+                const option = document.createElement('option');
+                option.value = shape.shape_id;
+                option.textContent = shape.shape_name;
+                if (shape.shape_id === product.shape_id) {
+                    option.selected = true;
+                }
+                shapeSelect.appendChild(option);
+            });
+
+            // แสดงข้อมูลสินค้า
+            document.getElementById('product_id').value = product.products_id;
+            document.getElementById('product_name').value = product.products_name || '';
+            document.getElementById('product_size').value = product.size || '';
+            document.getElementById('product_price').value = product.products_price || 0;
+            document.getElementById('product_stock').value = product.prod_stock || 0;
+
+            // แสดงรูปภาพ
+            if (product.prod_img) {
+                document.getElementById('current-image-container').style.display = 'block';
+                
+                let filename = product.prod_img;
+                if (filename.includes('/')) {
+                    filename = filename.split('/').pop();
+                }
+                document.getElementById('current-image-filename').innerHTML = 
+                    `<i class="fas fa-file-image"></i> ${filename}`;
+                
+                const imageUrl = getImageUrl(product.prod_img);
+                document.getElementById('current-image').src = imageUrl;
+            }
+
+            // อัปเดตข้อมูลราคา
+            updatePriceInfo(product.size);
+
+            // แสดงข้อความแจ้งเตือน
+            showMessage('กำลังใช้ข้อมูลตัวอย่าง (โหมดทดสอบ)', 'warning');
+
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('edit-product-form').style.display = 'block';
+        }
+
         // ==================== ฟังก์ชันหลัก ====================
         async function loadData() {
             if (!productId) {
@@ -621,16 +802,20 @@
             try {
                 document.getElementById('loading').style.display = 'block';
                 
+                // ลองดึงข้อมูลจาก API
                 priceRate = await getPriceRate();
                 
                 const [categories, shapes, product] = await Promise.all([
-                    getCategories(),
-                    getShapes(),
-                    getProductById(productId)
+                    getCategories().catch(() => null),
+                    getShapes().catch(() => null),
+                    getProductById(productId).catch(() => null)
                 ]);
-                
-                if (!product) {
-                    throw new Error('ไม่พบสินค้า');
+
+                // ถ้าดึงข้อมูลไม่ได้ ให้ใช้ข้อมูลตัวอย่าง
+                if (!categories || !shapes || !product) {
+                    console.log('Using sample data');
+                    loadSampleData();
+                    return;
                 }
                 
                 document.getElementById('product_id').value = product.products_id;
@@ -680,10 +865,12 @@
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('edit-product-form').style.display = 'block';
                 
+                showMessage('เชื่อมต่อฐานข้อมูลสำเร็จ', 'success');
+                
             } catch (error) {
                 console.error('Error loading data:', error);
-                document.getElementById('loading').style.display = 'none';
-                showMessage('ไม่สามารถโหลดข้อมูลได้: ' + error.message, 'error');
+                // ถ้า error ให้ใช้ข้อมูลตัวอย่าง
+                loadSampleData();
             }
         }
 
@@ -734,6 +921,16 @@
             submitBtn.disabled = true;
             
             try {
+                if (usingSampleData) {
+                    // ถ้าเป็นโหมดตัวอย่าง ให้จำลองการบันทึก
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    showMessage('บันทึกการเปลี่ยนแปลงสำเร็จ (โหมดตัวอย่าง)', 'success');
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 1500);
+                    return;
+                }
+
                 const data = {
                     products_name: name,
                     prod_role_id: parseInt(category),
