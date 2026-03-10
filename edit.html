@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>แก้ไขสินค้า | ร้านตรายางออนไลน์</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" type="image/png" href="../assets/img/LG.jpg">
+    <style>
+        /* คัดลอก CSS จาก edit.php ทั้งหมดมาวางไว้ที่นี่ */
+        :root {
+            --primary-red: #ff1a1a;
+            --dark-red: #cc0000;
+            --light-red: #ff4d4d;
+            --bg-dark: #111;
+            --bg-card: #1a1a1a;
+            --text-light: #eee;
+            --text-gray: #bbb;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg-dark);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+        }
+
+        .container {
+            background: var(--bg-card);
+            max-width: 600px;
+            width: 100%;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255, 26, 26, 0.3);
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 25px;
+            color: var(--primary-red);
+            font-size: 28px;
+            text-shadow: 0 0 10px rgba(255, 26, 26, 0.3);
+        }
+
+        label {
+            display: block;
+            margin-top: 15px;
+            font-weight: bold;
+            color: var(--light-red);
+            margin-bottom: 5px;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 12px;
+            margin-top: 5px;
+            border: 2px solid rgba(255, 26, 26, 0.3);
+            border-radius: 8px;
+            background: #222;
+            color: var(--text-light);
+            font-size: 16px;
+            transition: all 0.3s;
+            box-sizing: border-box;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--primary-red);
+            box-shadow: 0 0 10px rgba(255, 26, 26, 0.5);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+            max-height: 200px;
+        }
+
+        .btn-group {
+            margin-top: 25px;
+            display: flex;
+            gap: 15px;
+        }
+
+        button {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .save {
+            background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+            color: #fff;
+        }
+
+        .save:hover {
+            background: linear-gradient(135deg, #1e7e34 0%, #145c2c 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+        }
+
+        .cancel {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: #fff;
+        }
+
+        .cancel:hover {
+            background: linear-gradient(135deg, #c82333 0%, #a71d2a 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(220, 53, 69, 0.4);
+        }
+
+        img {
+            display: block;
+            width: 100%;
+            max-height: 300px;
+            object-fit: contain;
+            border-radius: 8px;
+            margin-top: 10px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            background: #111;
+            padding: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        img:hover {
+            transform: scale(1.02);
+            border-color: var(--primary-red);
+        }
+
+        .current-image {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border-left: 4px solid var(--primary-red);
+        }
+
+        .current-image h4 {
+            color: var(--primary-red);
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .file-input-label {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            background: #222;
+            border: 2px solid rgba(255, 26, 26, 0.3);
+            border-radius: 8px;
+            color: var(--text-gray);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .file-input-label:hover {
+            border-color: var(--primary-red);
+            color: var(--text-light);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .message {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            display: none;
+        }
+
+        .message.success {
+            background: rgba(40, 167, 69, 0.2);
+            color: #4CAF50;
+            border: 1px solid rgba(40, 167, 69, 0.4);
+        }
+
+        .message.error {
+            background: rgba(220, 53, 69, 0.2);
+            color: #f44336;
+            border: 1px solid rgba(220, 53, 69, 0.4);
+        }
+
+        .back-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .back-link a {
+            color: var(--light-red);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.3s;
+        }
+
+        .back-link a:hover {
+            color: var(--primary-red);
+            text-decoration: underline;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1001;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            max-width: 90%;
+            max-height: 90%;
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(255, 26, 26, 0.3);
+        }
+        
+        .close-modal {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: white;
+            font-size: 40px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .close-modal:hover {
+            color: var(--primary-red);
+            transform: rotate(90deg);
+        }
+        
+        #image-preview {
+            max-width: 200px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        
+        small {
+            color: var(--text-gray);
+            font-size: 12px;
+            display: block;
+            margin-top: 5px;
+        }
+
+        .price-info {
+            background: rgba(255, 26, 26, 0.1);
+            padding: 12px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border-left: 3px solid var(--primary-red);
+        }
+
+        .price-info p {
+            margin: 5px 0;
+            color: var(--text-gray);
+        }
+
+        .price-info strong {
+            color: var(--primary-red);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: #e50914;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>✏️ แก้ไขสินค้า</h2>
+    
+    <div id="message" class="message" style="display: none;"></div>
+    <div id="loading" class="loading" style="display: none;">
+        <i class="fas fa-spinner fa-spin fa-3x"></i>
+        <p>กำลังโหลดข้อมูล...</p>
+    </div>
+    
+    <form id="edit-product-form" style="display: none;">
+        <input type="hidden" name="product_id" id="product_id">
+        
+        <div class="form-group">
+            <label>ชื่อสินค้า *</label>
+            <input type="text" name="product_name" id="product_name" 
+                   placeholder="ชื่อสินค้า" required>
+        </div>
+        
+        <div class="form-group">
+            <label>ประเภทตรายาง *</label>
+            <select name="product_category" id="product_category" required>
+                <option value="">เลือกประเภท</option>
+            </select>
+            <small>เลือกประเภทของตรายาง</small>
+        </div>
+        
+        <div class="form-group">
+            <label>รูปร่างตรายาง *</label>
+            <select name="product_shape" id="product_shape" required>
+                <option value="">เลือกรูปร่าง</option>
+            </select>
+            <small>เลือกรูปร่างของตรายาง</small>
+        </div>
+        
+        <div class="form-group">
+            <label>ขนาดตรายาง *</label>
+            <input type="text" name="product_size" id="product_size" 
+                   placeholder="เช่น: 3x5 ซม., 4x6 ซม." required>
+            <small>รูปแบบ: กว้างxยาว ซม. (เช่น 3x5 ซม.)</small>
+        </div>
+        
+        <div class="form-group">
+            <label>ราคา (บาท) *</label>
+            <input type="number" name="product_price" id="product_price" 
+                   placeholder="กรอกราคา" required min="0" step="0.01">
+            <small>ราคาสินค้า</small>
+            
+            <div id="price-info" class="price-info" style="display: none;"></div>
+        </div>
+        
+        <div class="form-group">
+            <label>จำนวนในคลัง *</label>
+            <input type="number" name="product_stock" id="product_stock" 
+                   placeholder="กรอกจำนวนสินค้า" required min="0">
+        </div>
+        
+        <div id="current-image-container" class="current-image" style="display: none;">
+            <h4>รูปภาพปัจจุบัน:</h4>
+            <p><small id="current-image-filename"></small></p>
+            <p><small>ที่มา: GitHub Repository</small></p>
+            <img id="current-image" src="" alt="Current product image"
+                 onclick="previewImage(this.src)"
+                 onerror="this.onerror=null; this.src='https://via.placeholder.com/300x200/1a1a1a/e50914?text=Image+Not+Found'">
+        </div>
+        
+        <div class="form-group">
+            <label>เปลี่ยนรูปภาพสินค้า (ถ้าต้องการ)</label>
+            <div class="file-input-wrapper">
+                <input type="file" id="product-image" name="product_image" accept="image/*">
+                <div class="file-input-label">
+                    <span id="file-name">เลือกรูปภาพใหม่...</span>
+                    <i class="fas fa-upload"></i>
+                </div>
+            </div>
+            <small>ปล่อยว่างไว้หากไม่ต้องการเปลี่ยนรูปภาพ</small>
+            <img id="image-preview" style="display:none; margin-top:10px; max-width:200px; cursor:pointer;"
+                 onclick="previewImage(this.src)"
+                 onerror="this.onerror=null; this.src='https://via.placeholder.com/200x200/1a1a1a/e50914?text=Preview+Error'">
+        </div>
+        
+        <div class="btn-group">
+            <button type="submit" class="save">
+                <i class="fas fa-save"></i> บันทึกการเปลี่ยนแปลง
+            </button>
+            <button type="button" class="cancel" onclick="goBack()">
+                <i class="fas fa-times"></i> ยกเลิก
+            </button>
+        </div>
+    </form>
+    
+    <div class="back-link">
+        <a href="../index.html">
+            <i class="fas fa-arrow-left"></i> กลับไปยังหน้าแรก
+        </a>
+    </div>
+</div>
+
+<!-- Modal for image preview -->
+<div id="imageModal" class="modal">
+    <span class="close-modal" onclick="closeModal()">&times;</span>
+    <img class="modal-content" id="modalImage">
+</div>
+
+<script type="module">
+    import { 
+        getCategories, 
+        getShapes, 
+        getProductById, 
+        updateProduct,
+        getImageUrl,
+        parseSize,
+        supabaseRequest
+    } from '../api/supabase.js';
+
+    // Get product ID from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const productId = urlParams.get('id');
+
+    if (!productId) {
+        showMessage('ไม่พบรหัสสินค้า', 'error');
+        setTimeout(() => {
+            window.location.href = '../index.html';
+        }, 2000);
+    }
+
+    // Load data
+    async function loadData() {
+        try {
+            document.getElementById('loading').style.display = 'block';
+            
+            // Load categories and shapes
+            const [categories, shapes, product] = await Promise.all([
+                getCategories(),
+                getShapes(),
+                getProductById(productId)
+            ]);
+            
+            if (!product) {
+                throw new Error('ไม่พบสินค้า');
+            }
+            
+            // Populate form
+            document.getElementById('product_id').value = product.products_id;
+            document.getElementById('product_name').value = product.products_name || '';
+            document.getElementById('product_size').value = product.size || '';
+            document.getElementById('product_price').value = product.products_price || 0;
+            document.getElementById('product_stock').value = product.prod_stock || 0;
+            
+            // Populate categories
+            const categorySelect = document.getElementById('product_category');
+            categories.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat.prod_role_id;
+                option.textContent = cat.prod_role_name;
+                if (cat.prod_role_id === product.prod_role_id) {
+                    option.selected = true;
+                }
+                categorySelect.appendChild(option);
+            });
+            
+            // Populate shapes
+            const shapeSelect = document.getElementById('product_shape');
+            shapes.forEach(shape => {
+                const option = document.createElement('option');
+                option.value = shape.shape_id;
+                option.textContent = shape.shape_name;
+                if (shape.shape_id === product.shape_id) {
+                    option.selected = true;
+                }
+                shapeSelect.appendChild(option);
+            });
+            
+            // Show current image
+            if (product.prod_img) {
+                document.getElementById('current-image-container').style.display = 'block';
+                document.getElementById('current-image-filename').textContent = 
+                    `ชื่อไฟล์: ${product.prod_img.split('/').pop()}`;
+                document.getElementById('current-image').src = getImageUrl(product.prod_img);
+            }
+            
+            // Calculate price info
+            updatePriceInfo(product.size);
+            
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('edit-product-form').style.display = 'block';
+            
+        } catch (error) {
+            console.error('Error loading data:', error);
+            document.getElementById('loading').style.display = 'none';
+            showMessage('ไม่สามารถโหลดข้อมูลได้: ' + error.message, 'error');
+        }
+    }
+
+    // Update price info
+    function updatePriceInfo(size) {
+        const sizeData = parseSize(size);
+        const width = sizeData.width;
+        const length = sizeData.length;
+        
+        if (width > 0 && length > 0) {
+            const area = width * length;
+            const pricePerArea = 2.5;
+            const calculatedPrice = area * pricePerArea;
+            
+            document.getElementById('price-info').style.display = 'block';
+            document.getElementById('price-info').innerHTML = `
+                <p><i class="fas fa-calculator"></i> <strong>การคำนวณราคา:</strong></p>
+                <p>กว้าง: ${width} ซม. x ยาว: ${length} ซม. = พื้นที่ ${area.toFixed(2)} ตร.ซม.</p>
+                <p>ราคาต่อพื้นที่: ฿${pricePerArea.toFixed(2)}/ตร.ซม.</p>
+                <p>ราคาคำนวณ: ฿${calculatedPrice.toFixed(2)}</p>
+                <p><small>* ราคาที่ตั้งไว้อาจแตกต่างจากราคาคำนวณ</small></p>
+            `;
+        } else {
+            document.getElementById('price-info').style.display = 'none';
+        }
+    }
+
+    // Handle form submit
+    document.getElementById('edit-product-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const name = document.getElementById('product_name').value.trim();
+        const category = document.getElementById('product_category').value;
+        const shape = document.getElementById('product_shape').value;
+        const size = document.getElementById('product_size').value.trim();
+        const price = parseFloat(document.getElementById('product_price').value);
+        const stock = parseInt(document.getElementById('product_stock').value);
+        
+        // Validation
+        if (!name) {
+            showMessage('กรุณากรอกชื่อสินค้า', 'error');
+            return;
+        }
+        
+        if (!category) {
+            showMessage('กรุณาเลือกประเภทตรายาง', 'error');
+            return;
+        }
+        
+        if (!shape) {
+            showMessage('กรุณาเลือกรูปร่างตรายาง', 'error');
+            return;
+        }
+        
+        if (!size) {
+            showMessage('กรุณากรอกขนาดตรายาง', 'error');
+            return;
+        }
+        
+        if (price <= 0) {
+            showMessage('กรุณากรอกราคาที่ถูกต้อง', 'error');
+            return;
+        }
+        
+        if (stock < 0) {
+            showMessage('กรุณากรอกจำนวนสต็อกที่ถูกต้อง', 'error');
+            return;
+        }
+        
+        const submitBtn = e.target.querySelector('.save');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังบันทึก...';
+        submitBtn.disabled = true;
+        
+        try {
+            const data = {
+                products_name: name,
+                prod_role_id: parseInt(category),
+                shape_id: parseInt(shape),
+                size: size,
+                products_price: price,
+                prod_stock: stock
+            };
+            
+            // Handle image upload (ถ้าต้องการ)
+            // สำหรับ GitHub เราอาจจะต้องใช้ API แยก
+            
+            await updateProduct(productId, data);
+            
+            showMessage('บันทึกการเปลี่ยนแปลงสำเร็จ!', 'success');
+            setTimeout(() => {
+                window.location.href = '../index.html';
+            }, 1500);
+            
+        } catch (error) {
+            console.error('Error updating product:', error);
+            showMessage('เกิดข้อผิดพลาด: ' + error.message, 'error');
+        } finally {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }
+    });
+
+    // Update price info when size changes
+    document.getElementById('product_size').addEventListener('input', (e) => {
+        updatePriceInfo(e.target.value);
+    });
+
+    // File input preview
+    document.getElementById('product-image').addEventListener('change', function(e) {
+        const fileName = e.target.files[0]?.name || 'เลือกรูปภาพใหม่...';
+        document.getElementById('file-name').textContent = fileName;
+        
+        const preview = document.getElementById('image-preview');
+        if (e.target.files && e.target.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+            }
+            reader.readAsDataURL(e.target.files[0]);
+        }
+    });
+
+    // Modal functions
+    window.previewImage = function(src) {
+        document.getElementById('imageModal').style.display = 'flex';
+        document.getElementById('modalImage').src = src;
+    };
+
+    window.closeModal = function() {
+        document.getElementById('imageModal').style.display = 'none';
+    };
+
+    document.getElementById('imageModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeModal();
+        }
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeModal();
+        }
+    });
+
+    // Show message
+    function showMessage(text, type = 'info') {
+        const messageDiv = document.getElementById('message');
+        messageDiv.textContent = text;
+        messageDiv.className = `message ${type}`;
+        messageDiv.style.display = 'block';
+        
+        setTimeout(() => {
+            messageDiv.style.display = 'none';
+        }, 5000);
+    }
+
+    window.goBack = function() {
+        window.location.href = '../index.html';
+    };
+
+    // Start loading
+    loadData();
+</script>
+</body>
+</html>
