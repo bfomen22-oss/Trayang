@@ -1,14 +1,28 @@
 // api/supabase.js
-const SUPABASE_URL = 'https://xmcdsnonqzyqukmygwvv.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhtY2Rzbm9ucXp5cXVrbXlnd3Z2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxMTEzNzgsImV4cCI6MjA4ODY4NzM3OH0.xYOqB-y9YCrW7s64MJ9cZcrwk3XzK9h_8ZfxgZZ_2yI';
+const SUPABASE_URL = 'https://rsfzlygujesdkvwddwzv.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJzZnpseWd1amVzZGt2d2Rkd3p2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxMjAxOTEsImV4cCI6MjA4ODY5NjE5MX0.KDVU4PWQw90NyA7HN_SSB8fiGrEHiyZZNhywNSev0nE';
+
+// ตัวแปรสำหรับเก็บอัตราคำนวณราคา (สามารถปรับได้)
+let priceRate = 2.5; // ค่าเริ่มต้น 2.5 บาท/ตร.ซม.
 
 // ฟังก์ชันเรียก Supabase REST API
 async function supabaseRequest(endpoint, options = {}) {
     const { method = 'GET', data = null, params = {} } = options;
     
     // สร้าง URL query parameters
-    const queryParams = new URLSearchParams(params).toString();
-    const url = `${SUPABASE_URL}/rest/v1/${endpoint}${queryParams ? '?' + queryParams : ''}`;
+    const queryParams = new URLSearchParams();
+    
+    // จัดการกับ params แบบพิเศษสำหรับ Supabase
+    Object.keys(params).forEach(key => {
+        if (key === 'select' || key === 'order' || key === 'limit' || key === 'offset') {
+            queryParams.append(key, params[key]);
+        } else {
+            // สำหรับ filter conditions
+            queryParams.append(key, params[key]);
+        }
+    });
+    
+    const url = `${SUPABASE_URL}/rest/v1/${endpoint}${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
     
     const headers = {
         'apikey': SUPABASE_KEY,
@@ -28,6 +42,11 @@ async function supabaseRequest(endpoint, options = {}) {
     
     try {
         const response = await fetch(url, fetchOptions);
+        
+        if (method === 'HEAD' || response.status === 204) {
+            return { success: true };
+        }
+        
         const responseData = await response.json();
         
         if (!response.ok) {
@@ -61,6 +80,62 @@ async function getShapes() {
     });
 }
 
+// ฟังก์ชันดึงอัตราคำนวณราคา
+async function getPriceRate() {
+    try {
+        // ลองดึงจาก settings table ถ้ามี
+        const settings = await supabaseRequest('settings', {
+            params: {
+                select: '*',
+                setting_key: 'eq.price_rate'
+            }
+        });
+        
+        if (settings && settings.length > 0) {
+            priceRate = parseFloat(settings[0].setting_value);
+        }
+    } catch (error) {
+        console.log('Using default price rate:', priceRate);
+    }
+    return priceRate;
+}
+
+// ฟังก์ชันอัปเดตอัตราคำนวณราคา
+async function updatePriceRate(newRate) {
+    try {
+        const settings = await supabaseRequest('settings', {
+            params: {
+                select: '*',
+                setting_key: 'eq.price_rate'
+            }
+        });
+        
+        if (settings && settings.length > 0) {
+            // อัปเดตค่าเดิม
+            await supabaseRequest('settings', {
+                method: 'PATCH',
+                params: { setting_key: 'eq.price_rate' },
+                data: { setting_value: newRate.toString() }
+            });
+        } else {
+            // เพิ่มค่าใหม่
+            await supabaseRequest('settings', {
+                method: 'POST',
+                data: {
+                    setting_key: 'price_rate',
+                    setting_value: newRate.toString()
+                }
+            });
+        }
+        
+        priceRate = newRate;
+        return true;
+    } catch (error) {
+        console.error('Error updating price rate:', error);
+        return false;
+    }
+}
+
 // ฟังก์ชันดึงสินค้าพร้อมกรองและแบ่งหน้า
 async function getProducts(options = {}) {
     const {
@@ -70,67 +145,58 @@ async function getProducts(options = {}) {
         limit = 12
     } = options;
     
-    // สร้าง conditions
-    let conditions = [];
-    let queryParams = {
-        select: '*, products_role(prod_role_name), shapes(shape_name)',
+    let params = {
+        select: '*, products_role!inner(*), shapes!inner(*)',
         order: 'products_id.desc'
     };
     
+    // เพิ่มเงื่อนไข WHERE
+    let whereConditions = [];
+    
     if (category > 0) {
-        conditions.push(`prod_role_id.eq.${category}`);
+        whereConditions.push(`prod_role_id.eq.${category}`);
     }
     
     if (search) {
-        // ค้นหาจากชื่อหรือขนาด
-        conditions.push(`or(products_name.ilike.*${search}*,size.ilike.*${search}*)`);
+        whereConditions.push(`or(products_name.ilike.*${search}*,size.ilike.*${search}*)`);
     }
     
-    if (conditions.length > 0) {
-        queryParams = {
-            ...queryParams,
-            ...conditions.reduce((acc, cond, index) => ({
+    // รวม conditions
+    if (whereConditions.length > 0) {
+        params = {
+            ...params,
+            ...whereConditions.reduce((acc, cond, index) => ({
                 ...acc,
-                [`or${index}`]: cond
+                [`and${index}`]: cond
             }), {})
         };
     }
     
     // จำกัดจำนวนต่อหน้า
     const from = (page - 1) * limit;
-    const to = from + limit - 1;
-    queryParams = {
-        ...queryParams,
-        limit: limit,
-        offset: from
-    };
+    params.limit = limit;
+    params.offset = from;
     
-    return supabaseRequest('products', { params: queryParams });
+    return supabaseRequest('products', { params });
 }
 
 // ฟังก์ชันนับจำนวนสินค้า
 async function countProducts(options = {}) {
     const { category = 0, search = '' } = options;
     
-    let conditions = [];
+    let params = {
+        select: 'products_id'
+    };
     
     if (category > 0) {
-        conditions.push(`prod_role_id.eq.${category}`);
+        params.prod_role_id = `eq.${category}`;
     }
     
     if (search) {
-        conditions.push(`or(products_name.ilike.*${search}*,size.ilike.*${search}*)`);
+        params.or = `(products_name.ilike.*${search}*,size.ilike.*${search}*)`;
     }
     
-    const queryParams = {
-        select: 'products_id',
-        ...conditions.reduce((acc, cond, index) => ({
-            ...acc,
-            [`or${index}`]: cond
-        }), {})
-    };
-    
-    const result = await supabaseRequest('products', { params: queryParams });
+    const result = await supabaseRequest('products', { params });
     return result.length;
 }
 
@@ -148,8 +214,9 @@ async function getProductById(id) {
 
 // ฟังก์ชันอัปเดตสินค้า
 async function updateProduct(id, data) {
-    return supabaseRequest(`products?products_id=eq.${id}`, {
+    return supabaseRequest('products', {
         method: 'PATCH',
+        params: { products_id: `eq.${id}` },
         data
     });
 }
@@ -160,25 +227,31 @@ function getImageUrl(imageName) {
         return 'https://via.placeholder.com/300x200/1a1a1a/e50914?text=No+Image';
     }
     
-    // GitHub repository URL
+    // ถ้าเป็น URL อยู่แล้ว
+    if (imageName.startsWith('http')) {
+        return imageName;
+    }
+    
+    // GitHub repository URL - ใช้ raw.githubusercontent.com
     const githubBase = 'https://raw.githubusercontent.com/PEAW1026/Traiyang_Shop/main/image/';
     
-    // ตัดเฉพาะชื่อไฟล์
-    const filename = imageName.split('/').pop();
+    // ตัดเฉพาะชื่อไฟล์ และลบ path ข้างหน้าออก
+    let filename = imageName;
+    if (imageName.includes('/')) {
+        filename = imageName.split('/').pop();
+    }
     
-    return githubBase + encodeURIComponent(filename);
+    // URL encode ชื่อไฟล์
+    const encodedFilename = encodeURIComponent(filename);
+    
+    return githubBase + encodedFilename;
 }
 
 // ฟังก์ชันคำนวณราคาตามขนาด
-function calculatePrice(width, length, basePrice = null) {
-    if (basePrice !== null) {
-        return parseFloat(basePrice);
-    }
-    
+function calculatePrice(width, length, customRate = null) {
+    const rate = customRate !== null ? customRate : priceRate;
     const area = parseFloat(width) * parseFloat(length);
-    const pricePerArea = 2.5; // 2.5 บาท/ตร.ซม.
-    
-    return area * pricePerArea;
+    return area * rate;
 }
 
 // ฟังก์ชันแยกขนาด width/length
@@ -186,6 +259,9 @@ function parseSize(sizeString) {
     let width = 0;
     let length = 0;
     
+    if (!sizeString) return { width, length };
+    
+    // รองรับหลายรูปแบบ: 3x5, 3x5 ซม., 3 x 5, 3.5x7.2
     const match = sizeString.match(/(\d+(?:\.\d+)?)\s*[xX]\s*(\d+(?:\.\d+)?)/);
     if (match) {
         width = parseFloat(match[1]);
@@ -195,10 +271,26 @@ function parseSize(sizeString) {
     return { width, length };
 }
 
-// ฟังก์ชันอัปโหลดรูปภาพ (ถ้าต้องการใช้)
-async function uploadImage(file, productId) {
-    // สำหรับ GitHub เราอาจจะไม่ต้องอัปโหลด
-    // แต่ถ้าต้องการอัปโหลด ต้องใช้ GitHub API
-    console.log('Upload image:', file.name, 'for product:', productId);
+// ฟังก์ชันอัปโหลดรูปภาพ (ใช้ GitHub API - ต้องมี token)
+async function uploadImageToGitHub(file, filename) {
+    // ต้องมี GitHub token และ repo permissions
+    // เป็นตัวอย่างเท่านั้น - ในการใช้งานจริงต้องตั้งค่า GitHub token
+    console.log('Upload image:', filename);
     return null;
 }
+
+export {
+    supabaseRequest,
+    getCategories,
+    getShapes,
+    getPriceRate,
+    updatePriceRate,
+    getProducts,
+    countProducts,
+    getProductById,
+    updateProduct,
+    getImageUrl,
+    calculatePrice,
+    parseSize,
+    priceRate
+};
