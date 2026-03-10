@@ -429,110 +429,162 @@
         <img id="modalImage">
     </div>
 
-    <script type="module">
-        import { 
-            getCategories, 
-            getShapes, 
-            getProductById, 
-            updateProduct,
-            getPriceRate,
-            getImageUrl,
-            calculatePrice,
-            parseSize
-        } from '../api/supabase.js';
-
-        // Get product ID from URL
+    <script>
+        // ==================== ตัวแปร Global ====================
+        const SUPABASE_URL = 'https://whwuvqftcxmiyodnwmqe.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indod3V2cWZ0Y3htaXlvZG53bXFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE2MjY4NjEsImV4cCI6MjA1NzIwMjg2MX0.jCzN2Kz5B62hCCHmQ-5uUXMgD-pUy6dX0VOH7R8mlHU';
+        
+        let priceRate = 2.5;
         const urlParams = new URLSearchParams(window.location.search);
         const productId = urlParams.get('id');
 
-        if (!productId) {
-            showMessage('ไม่พบรหัสสินค้า', 'error');
-            setTimeout(() => {
-                window.location.href = '../index.html';
-            }, 2000);
-        }
-
-        let priceRate = 2.5;
-
-        // Load data
-        async function loadData() {
+        // ==================== ฟังก์ชันเรียก API ====================
+        async function supabaseRequest(endpoint, options = {}) {
+            const { method = 'GET', data = null, params = {} } = options;
+            
+            const queryParams = new URLSearchParams();
+            Object.keys(params).forEach(key => {
+                queryParams.append(key, params[key]);
+            });
+            
+            const url = `${SUPABASE_URL}/rest/v1/${endpoint}${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+            
+            const headers = {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=representation'
+            };
+            
             try {
-                document.getElementById('loading').style.display = 'block';
-                
-                // Get price rate
-                priceRate = await getPriceRate();
-                
-                // Load categories, shapes, and product
-                const [categories, shapes, product] = await Promise.all([
-                    getCategories(),
-                    getShapes(),
-                    getProductById(productId)
-                ]);
-                
-                if (!product) {
-                    throw new Error('ไม่พบสินค้า');
-                }
-                
-                // Populate form
-                document.getElementById('product_id').value = product.products_id;
-                document.getElementById('product_name').value = product.products_name || '';
-                document.getElementById('product_size').value = product.size || '';
-                document.getElementById('product_price').value = product.products_price || 0;
-                document.getElementById('product_stock').value = product.prod_stock || 0;
-                
-                // Populate categories
-                const categorySelect = document.getElementById('product_category');
-                categories.forEach(cat => {
-                    const option = document.createElement('option');
-                    option.value = cat.prod_role_id;
-                    option.textContent = cat.prod_role_name;
-                    if (cat.prod_role_id === product.prod_role_id) {
-                        option.selected = true;
-                    }
-                    categorySelect.appendChild(option);
+                const response = await fetch(url, {
+                    method,
+                    headers,
+                    body: data ? JSON.stringify(data) : undefined
                 });
                 
-                // Populate shapes
-                const shapeSelect = document.getElementById('product_shape');
-                shapes.forEach(shape => {
-                    const option = document.createElement('option');
-                    option.value = shape.shape_id;
-                    option.textContent = shape.shape_name;
-                    if (shape.shape_id === product.shape_id) {
-                        option.selected = true;
-                    }
-                    shapeSelect.appendChild(option);
-                });
-                
-                // Show current image
-                if (product.prod_img) {
-                    document.getElementById('current-image-container').style.display = 'block';
-                    
-                    let filename = product.prod_img;
-                    if (filename.includes('/')) {
-                        filename = filename.split('/').pop();
-                    }
-                    document.getElementById('current-image-filename').innerHTML = 
-                        `<i class="fas fa-file-image"></i> ${filename}`;
-                    
-                    const imageUrl = getImageUrl(product.prod_img);
-                    document.getElementById('current-image').src = imageUrl;
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 
-                // Calculate price info
-                updatePriceInfo(product.size);
+                if (method === 'PATCH' && response.status === 204) {
+                    return { success: true };
+                }
                 
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('edit-product-form').style.display = 'block';
-                
+                return await response.json();
             } catch (error) {
-                console.error('Error loading data:', error);
-                document.getElementById('loading').style.display = 'none';
-                showMessage('ไม่สามารถโหลดข้อมูลได้: ' + error.message, 'error');
+                console.error('Supabase API error:', error);
+                throw error;
             }
         }
 
-        // Update price info
+        async function getCategories() {
+            return supabaseRequest('products_role', {
+                params: {
+                    select: '*',
+                    order: 'prod_role_name.asc'
+                }
+            });
+        }
+
+        async function getShapes() {
+            return supabaseRequest('shapes', {
+                params: {
+                    select: '*',
+                    order: 'shape_name.asc'
+                }
+            });
+        }
+
+        async function getPriceRate() {
+            try {
+                const settings = await supabaseRequest('settings', {
+                    params: {
+                        select: '*',
+                        setting_key: 'eq.price_rate'
+                    }
+                });
+                
+                if (settings && settings.length > 0) {
+                    priceRate = parseFloat(settings[0].setting_value);
+                }
+            } catch (error) {
+                console.log('Using default price rate:', priceRate);
+            }
+            return priceRate;
+        }
+
+        async function getProductById(id) {
+            const products = await supabaseRequest('products', {
+                params: {
+                    select: '*, products_role(*), shapes(*)',
+                    products_id: `eq.${id}`
+                }
+            });
+            
+            return products.length > 0 ? products[0] : null;
+        }
+
+        async function updateProduct(id, data) {
+            return supabaseRequest('products', {
+                method: 'PATCH',
+                params: { products_id: `eq.${id}` },
+                data
+            });
+        }
+
+        // ==================== ฟังก์ชันช่วยเหลือ ====================
+        function getImageUrl(imageName) {
+            if (!imageName) {
+                return 'https://via.placeholder.com/300x200/667eea/ffffff?text=No+Image';
+            }
+            
+            if (imageName.startsWith('http')) {
+                return imageName;
+            }
+            
+            const githubBase = 'https://raw.githubusercontent.com/PEAW1026/Traiyang_Shop/main/image/';
+            let filename = imageName;
+            if (imageName.includes('/')) {
+                filename = imageName.split('/').pop();
+            }
+            
+            return githubBase + encodeURIComponent(filename);
+        }
+
+        function calculatePrice(width, length, customRate = null) {
+            const rate = customRate !== null ? customRate : priceRate;
+            const area = parseFloat(width) * parseFloat(length);
+            return area * rate;
+        }
+
+        function parseSize(sizeString) {
+            let width = 0;
+            let length = 0;
+            
+            if (!sizeString) return { width, length };
+            
+            const match = sizeString.match(/(\d+(?:\.\d+)?)\s*[xX]\s*(\d+(?:\.\d+)?)/);
+            if (match) {
+                width = parseFloat(match[1]);
+                length = parseFloat(match[2]);
+            }
+            
+            return { width, length };
+        }
+
+        // ==================== ฟังก์ชันแสดงผล ====================
+        function showMessage(text, type = 'info') {
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = text;
+            messageDiv.className = `message ${type}`;
+            messageDiv.style.display = 'flex';
+            
+            setTimeout(() => {
+                messageDiv.style.display = 'none';
+            }, 5000);
+        }
+
         function updatePriceInfo(size) {
             const sizeData = parseSize(size);
             const width = sizeData.width;
@@ -555,7 +607,86 @@
             }
         }
 
-        // Handle form submit
+        // ==================== ฟังก์ชันหลัก ====================
+        async function loadData() {
+            if (!productId) {
+                showMessage('ไม่พบรหัสสินค้า', 'error');
+                setTimeout(() => {
+                    window.location.href = '../index.html';
+                }, 2000);
+                return;
+            }
+
+            try {
+                document.getElementById('loading').style.display = 'block';
+                
+                priceRate = await getPriceRate();
+                
+                const [categories, shapes, product] = await Promise.all([
+                    getCategories(),
+                    getShapes(),
+                    getProductById(productId)
+                ]);
+                
+                if (!product) {
+                    throw new Error('ไม่พบสินค้า');
+                }
+                
+                document.getElementById('product_id').value = product.products_id;
+                document.getElementById('product_name').value = product.products_name || '';
+                document.getElementById('product_size').value = product.size || '';
+                document.getElementById('product_price').value = product.products_price || 0;
+                document.getElementById('product_stock').value = product.prod_stock || 0;
+                
+                const categorySelect = document.getElementById('product_category');
+                categories.forEach(cat => {
+                    const option = document.createElement('option');
+                    option.value = cat.prod_role_id;
+                    option.textContent = cat.prod_role_name;
+                    if (cat.prod_role_id === product.prod_role_id) {
+                        option.selected = true;
+                    }
+                    categorySelect.appendChild(option);
+                });
+                
+                const shapeSelect = document.getElementById('product_shape');
+                shapes.forEach(shape => {
+                    const option = document.createElement('option');
+                    option.value = shape.shape_id;
+                    option.textContent = shape.shape_name;
+                    if (shape.shape_id === product.shape_id) {
+                        option.selected = true;
+                    }
+                    shapeSelect.appendChild(option);
+                });
+                
+                if (product.prod_img) {
+                    document.getElementById('current-image-container').style.display = 'block';
+                    
+                    let filename = product.prod_img;
+                    if (filename.includes('/')) {
+                        filename = filename.split('/').pop();
+                    }
+                    document.getElementById('current-image-filename').innerHTML = 
+                        `<i class="fas fa-file-image"></i> ${filename}`;
+                    
+                    const imageUrl = getImageUrl(product.prod_img);
+                    document.getElementById('current-image').src = imageUrl;
+                }
+                
+                updatePriceInfo(product.size);
+                
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('edit-product-form').style.display = 'block';
+                
+            } catch (error) {
+                console.error('Error loading data:', error);
+                document.getElementById('loading').style.display = 'none';
+                showMessage('ไม่สามารถโหลดข้อมูลได้: ' + error.message, 'error');
+            }
+        }
+
+        // ==================== Event Listeners ====================
         document.getElementById('edit-product-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -566,7 +697,6 @@
             const price = parseFloat(document.getElementById('product_price').value);
             const stock = parseInt(document.getElementById('product_stock').value);
             
-            // Validation
             if (!name) {
                 showMessage('กรุณากรอกชื่อสินค้า', 'error');
                 return;
@@ -612,15 +742,6 @@
                     prod_stock: stock
                 };
                 
-                // Handle image upload (ถ้ามีการเลือกไฟล์)
-                const fileInput = document.getElementById('product-image');
-                if (fileInput.files.length > 0) {
-                    // สำหรับ GitHub เราอาจจะต้องใช้ API แยก
-                    // ในที่นี้ให้เก็บชื่อไฟล์เดิมไว้ก่อน
-                    console.log('Selected file:', fileInput.files[0].name);
-                    // TODO: อัปโหลดไปยัง GitHub
-                }
-                
                 await updateProduct(productId, data);
                 
                 showMessage('บันทึกการเปลี่ยนแปลงสำเร็จ!', 'success');
@@ -637,12 +758,10 @@
             }
         });
 
-        // Update price info when size changes
         document.getElementById('product_size').addEventListener('input', (e) => {
             updatePriceInfo(e.target.value);
         });
 
-        // File input preview
         document.getElementById('product-image').addEventListener('change', function(e) {
             const fileName = e.target.files[0]?.name || 'เลือกรูปภาพใหม่...';
             document.getElementById('file-name').textContent = fileName;
@@ -658,7 +777,7 @@
             }
         });
 
-        // Modal functions
+        // ==================== Modal Functions ====================
         window.previewImage = function(src) {
             document.getElementById('imageModal').style.display = 'flex';
             document.getElementById('modalImage').src = src;
@@ -680,23 +799,11 @@
             }
         });
 
-        // Show message
-        function showMessage(text, type = 'info') {
-            const messageDiv = document.getElementById('message');
-            messageDiv.textContent = text;
-            messageDiv.className = `message ${type}`;
-            messageDiv.style.display = 'flex';
-            
-            setTimeout(() => {
-                messageDiv.style.display = 'none';
-            }, 5000);
-        }
-
         window.goBack = function() {
             window.location.href = '../index.html';
         };
 
-        // Start loading
+        // เริ่มต้นการทำงาน
         loadData();
     </script>
 </body>
